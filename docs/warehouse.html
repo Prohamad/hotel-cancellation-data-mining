@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Warehouse · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/dw.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+
+<header class="page-hero dw-hero">
+  <svg class="hero-art" id="hero-art" viewBox="0 0 520 300" aria-hidden="true"></svg>
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 04</div>
+    <div class="eyebrow gt" style="margin-top:14px">Stage 04 · Data Warehouse</div>
+    <h1>A star schema you can query in your browser</h1>
+    <p class="lead">The cleaned bookings were loaded into a SQLite data warehouse with one fact table and six dimensions.
+      The real database file runs on this page — explore the tables, replay the OLAP operations or write your own SQL.</p>
+    <div class="meta">
+      <span class="pill">1 fact · 6 dimensions</span><span class="pill" id="m-rows">86,637 fact rows</span><span class="pill">SQLite · 4.3 MB</span>
+      <span class="pill" id="m-status">Loading database…</span>
+      <a class="nb-link" href="nb/04.html" style="margin-left:auto">{ } View notebook 04</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <aside class="toc">
+    <b>On this page</b>
+    <a href="#schema">Star schema</a>
+    <a href="#etl">ETL and validation</a>
+    <a href="#explorer">SQL explorer</a>
+  </aside>
+
+  <main class="content">
+    <!-- ===== star schema ===== -->
+    <section id="schema">
+      <h2>Star schema</h2>
+      <p><b>Grain:</b> one row in the fact table is one booking. Each dimension describes the booking from one point of view and
+        is linked to the fact table by a surrogate key. Click a table to see its columns and real rows.</p>
+      <div class="star" id="star">
+        <svg class="star-lines" id="star-lines"></svg>
+      </div>
+      <div class="card tbl-panel" id="tbl-panel">
+        <div class="tp-head"><div><div class="eyebrow gt" id="tp-type">Fact table</div><h3 id="tp-name">Fact_Booking</h3></div>
+          <span class="pill" id="tp-count"></span></div>
+        <div class="tp-cols" id="tp-cols"></div>
+        <div class="res-wrap"><table class="t res" id="tp-rows"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== ETL ===== -->
+    <section id="etl">
+      <h2>ETL and validation</h2>
+      <p>The warehouse was built with SQL from a staging table. After loading, three checks confirmed that nothing was lost —
+        they are recalculated live below.</p>
+      <div class="etl">
+        <div class="card etl-step"><span class="n">1 · Extract</span><h3>Staging table</h3><p>The cleaned bookings are copied into <code>Bookings_Source</code>.</p></div>
+        <div class="card etl-step"><span class="n">2 · Transform</span><h3>Dimensions</h3><p><code>SELECT DISTINCT</code> combinations get a surrogate key (<code>INTEGER PRIMARY KEY</code>).</p></div>
+        <div class="card etl-step"><span class="n">3 · Load</span><h3>Fact table</h3><p>Each booking looks up its six keys with <code>JOIN</code>s; measures are stored with them.</p></div>
+        <div class="card etl-step"><span class="n">4 · Validate</span><h3>Checks</h3><p>Row count, revenue total and orphan keys.</p></div>
+      </div>
+      <div class="checks" id="checks"></div>
+    </section>
+
+    <!-- ===== SQL explorer ===== -->
+    <section id="explorer">
+      <h2>SQL explorer</h2>
+      <p>Choose an analytical query or an OLAP operation from notebook 04, or edit the SQL and run it.
+        <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> runs the query.</p>
+      <div class="sqlx">
+        <div class="ops" id="ops"></div>
+        <div class="sql-main">
+          <div class="editor-wrap">
+            <div class="editor-bar"><span id="q-title">Query</span>
+              <span><button class="nb-btn ghost-btn" id="reset">Reset</button> <button class="nb-btn" id="run">Run ▶</button></span></div>
+            <textarea id="sql" spellcheck="false"></textarea>
+          </div>
+          <div class="res-meta" id="res-meta"></div>
+          <div class="chart" id="res-chart-box"><div id="res-chart" style="height:280px"></div></div>
+          <div class="res-wrap"><table class="t res" id="res"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="pager">
+      <a href="outliers.html"><small>← Previous</small>03 · Outlier Analysis</a>
+      <a class="next" href="eda.html"><small>Next →</small>05 · Exploratory Analysis</a>
+    </div>
+  </main>
+</div>
+
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/vendor/sqljs/sql-wasm.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/dw.js?v=1794044526"></script>
+<script src="assets/js/warehouse.js?v=1794044526"></script>
+<script>
+  // isometric line-art of the star schema (fact cylinder + six dimensions), drawn from parameters
+  (function () {
+    const INK = "#0b1220", G1 = "#f1f5f9", G2 = "#cbd5e1", C = "#06b6d4", B = "#2563eb";
+    const disk = (x, y, rx, h, top, side) => { const ry = rx * .42;
+      return `<path d="M${x-rx},${y} v${h} a${rx},${ry} 0 0 0 ${2*rx},0 v${-h}" fill="${side}" stroke="${INK}" stroke-width="1.2"/>
+              <ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${top}" stroke="${INK}" stroke-width="1.2"/>`; };
+    const stack = (x, y, rx, cols, cls) => `<g class="bob ${cls || ""}">` + cols.map((c, i) =>
+      disk(x, y - i * rx * .27, rx, rx * .26, c, c === INK ? "#1e293b" : c === C ? "#0891b2" : c === B ? "#1d4ed8" : G2)).join("") + "</g>";
+    const F = [300, 175], D = [[90, 120], [175, 60], [430, 70], [480, 170], [400, 260], [150, 240]];
+    let s = D.map(([x, y]) => { const mx = (x + F[0]) / 2;
+      return `<path class="flow" d="M${F[0]},${F[1]-20} H${mx} V${y-6} H${x}" fill="none" stroke="${INK}" stroke-width="1"/><circle cx="${mx}" cy="${y-6}" r="3" fill="#fff" stroke="${INK}"/>`; }).join("");
+    s += `<ellipse class="orbit" cx="${F[0]}" cy="${F[1]+18}" rx="82" ry="32" fill="none" stroke="url(#og)" stroke-width="10" pathLength="600" stroke-dasharray="110 40"/>`;
+    s += stack(F[0], F[1] + 12, 56, [G1, G1, INK, G1, C]);
+    s += D.map(([x, y], i) => stack(x, y, 26, i % 2 ? [G1, B, INK] : [G1, INK, C], "d" + (i % 3))).join("");
+    document.getElementById("hero-art").innerHTML = `<defs><linearGradient id="og" x1="0" x2="1"><stop offset="0" stop-color="#2563eb"/><stop offset=".55" stop-color="#06b6d4"/><stop offset="1" stop-color="#10b981"/></linearGradient></defs>` + s;
+  })();
+</script>
+</body>
+</html>

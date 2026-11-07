@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four kinds of bookings, found without the label · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 07</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 07 · Clustering</div>
+    <h1>Four kinds of bookings, found without the label</h1>
+    <p class="lead">K-Means groups bookings by five normalised attributes — lead time, nights, price, guests and special requests. The class label is not used to build the clusters; it is only used afterwards to describe them.</p>
+    <div class="meta"><span class="pill ">k = 4</span><span class="pill ">silhouette 0.32</span><span class="pill keep">unsupervised</span><a class="nb-link" href="nb/07.html" style="margin-left:auto">{ } View notebook 07</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#k">Choosing k</a><a href="#segments">Segments</a><a href="#agnes">Agglomerative</a></aside>
+  <main class="content">
+
+    <section id="k">
+      <h2>Choosing k</h2>
+      <p>The empirical rule k ≈ √(n/2) gives 208 — far too many to describe the data. The elbow of the SSE curve is at <b>k = 4</b>.</p>
+      <div class="grid g2"><div class="chart"><div id="c-sse" style="height:260px"></div><p class="figcap">Elbow method · within-cluster SSE</p></div>
+        <div class="chart"><div id="c-sil" style="height:260px"></div><p class="figcap">Silhouette coefficient</p></div></div>
+    </section>
+    <section id="segments">
+      <h2>Segments</h2>
+      <div class="segs" id="segs"></div>
+      <div class="chart" style="margin-top:14px"><div id="c-radar" style="height:380px"></div><p class="figcap">Centroids in original units, scaled per attribute (0 = lowest cluster, 1 = highest)</p></div>
+    </section>
+    <section id="agnes">
+      <h2>Agglomerative clustering (AGNES)</h2>
+      <p>Run on a random sample of 2,000 bookings because the method needs all pairwise distances.</p>
+      <table class="t"><thead><tr><th>Link</th><th>Cluster sizes</th><th>Silhouette</th><th>Reading</th></tr></thead><tbody>
+        <tr><td>single</td><td class="num">1997 · 1 · 1 · 1</td><td class="num">0.399</td><td>isolates outliers — misleading</td></tr>
+        <tr><td>average</td><td class="num">1995 · 3 · 1 · 1</td><td class="num">0.322</td><td>isolates outliers — misleading</td></tr>
+        <tr><td>complete</td><td class="num">339 · 1169 · 191 · 301</td><td class="num">0.128</td><td>usable groups</td></tr>
+        <tr><td><b>K-Means</b></td><td class="num">same sample</td><td class="num"><b>0.320</b></td><td>best usable result</td></tr>
+      </tbody></table>
+    </section>
+    <div class="pager"><a href="classification.html"><small>← Previous</small>06 · Classification</a><a class="next" href="regression.html"><small>Next →</small>08 · Numeric Prediction</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+const K = [2,3,4,5,6,7,8,9,10], SSE = [5382.8,4092.3,3411.5,2848.0,2475.2,2211.6,2047.5,1897.2,1764.7], SIL = [.258,.300,.323,.321,.319,.335,.345,.350,.368];
+const line = (id, y, c, ttl) => Plotly.react(id, [{ type: "scatter", mode: "lines+markers", x: K, y, line: { color: c, width: 2.5 }, marker: { size: 7, color: K.map(k => k === 4 ? "#0b1220" : c) } }],
+  PLOT.layout({ xaxis: { title: "k", dtick: 1, gridcolor: "#232327" }, yaxis: { title: ttl, gridcolor: "#232327" },
+    shapes: [{ type: "line", x0: 4, x1: 4, y0: 0, y1: 1, yref: "paper", line: { dash: "dash", color: "#94a3b8" } }] }), PLOT.config);
+line("c-sse", SSE, STAGE.C.blue, "SSE"); line("c-sil", SIL, STAGE.C.green, "silhouette");
+const S = [
+  { n: 0, name: "Families & groups", b: 10797, lead: 89.4, nights: 3.88, adr: 161.3, guests: 3.37, req: .52, c: 39 },
+  { n: 1, name: "Single guests", b: 14541, lead: 48.0, nights: 2.69, adr: 78.8, guests: 1.00, req: .26, c: 19 },
+  { n: 2, name: "Detail-oriented", b: 13762, lead: 87.9, nights: 3.86, adr: 117.6, guests: 2.15, req: 2.22, c: 20 },
+  { n: 3, name: "Typical couples", b: 47520, lead: 85.8, nights: 3.84, adr: 100.6, guests: 2.00, req: .44, c: 30 }];
+const COL = [STAGE.C.orange, STAGE.C.green, STAGE.C.cyan, STAGE.C.blue];
+document.getElementById("segs").innerHTML = S.map((s, i) => `<div class="seg card rv" style="--c:${COL[i]}"><div class="seg-top"><span class="num">C${s.n}</span><span class="pill">${STAGE.fmt(s.b)} bookings</span></div>
+  <h3>${s.name}</h3><div class="seg-rate"><b>${s.c}%</b><small>canceled</small></div><div class="bar"><i style="--w:${s.c / 45 * 100}%"></i></div>
+  <p class="mono-s">${s.guests} guests · €${s.adr} · ${s.req} requests · ${s.lead} days ahead</p></div>`).join("");
+initReveal();
+const A = ["lead", "nights", "adr", "guests", "req"], LAB = ["lead time", "nights", "price", "guests", "requests"];
+const mm = A.map(a => [Math.min(...S.map(s => s[a])), Math.max(...S.map(s => s[a]))]);
+Plotly.react("c-radar", S.map((s, i) => ({ type: "scatterpolar", fill: "toself", name: "C" + s.n + " · " + s.name, opacity: .75,
+  r: [...A.map((a, j) => (s[a] - mm[j][0]) / (mm[j][1] - mm[j][0] || 1)), (s.lead - mm[0][0]) / (mm[0][1] - mm[0][0])], theta: [...LAB, LAB[0]], line: { color: COL[i] } })),
+  PLOT.layout({ showlegend: true, legend: { orientation: "h", y: -0.08 }, polar: { radialaxis: { visible: false, range: [0, 1] }, bgcolor: "rgba(0,0,0,0)" }, margin: { l: 40, r: 40, t: 20, b: 40 } }), PLOT.config);
+</script>
+</body>
+</html>

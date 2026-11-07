@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebooks · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/notebook.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / Notebooks</div>
+    <div class="eyebrow gt" style="margin-top:14px">Code</div>
+    <h1>The Jupyter notebooks</h1>
+    <p class="lead">Every result on this website comes from these eight notebooks. They are shown exactly as they were run —
+      explanations, Python code and saved outputs. Use <b>Hide code</b> on any notebook to read only the explanations and results.</p>
+    <div class="meta" id="nb-meta"></div>
+  </div>
+</header>
+<section class="wrap" style="padding:36px 28px 70px">
+  <div class="nb-grid" id="nb-grid"></div>
+</section>
+<div id="footer"></div>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script>
+  fetch("assets/data/notebooks.json").then(r => r.json()).then(list => {
+    const sum = k => list.reduce((a, n) => a + n[k], 0);
+    document.getElementById("nb-meta").innerHTML =
+      `<span class="pill">${list.length} notebooks</span><span class="pill">${sum("code")} code cells</span>` +
+      `<span class="pill">${sum("md")} explanation cells</span><span class="pill">${sum("img")} figures</span>`;
+    document.getElementById("nb-grid").innerHTML = list.map(n => `
+      <a class="card nb-card rv" href="nb/${n.id}.html">
+        <div class="num">${n.id}</div>
+        <div><div class="file">${n.file}</div><h3>${n.title}</h3><p>${n.desc}</p>
+          <div class="stats"><span>${n.code} code cells</span><span>${n.md} markdown</span><span>${n.img} figures</span></div></div>
+      </a>`).join("");
+    initReveal(); initSpotlight();
+  });
+</script>
+</body>
+</html>

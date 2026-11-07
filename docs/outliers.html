@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outlier Analysis · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 03</div>
+    <div class="eyebrow gt" style="margin-top:14px">Stage 03 · Outlier Analysis</div>
+    <h1>Which extreme values are errors, and which are real?</h1>
+    <p class="lead">Four numeric attributes were checked with the IQR and Z-score methods. Each group of outliers was then
+      evaluated: a valid observation is kept, a data-entry error is removed.</p>
+    <div class="meta">
+      <span class="pill">Methods: IQR · Z-score</span><span class="pill">86,637 → 86,620 rows</span><span class="pill remove">17 removed</span>
+      <a class="nb-link" href="nb/03.html" style="margin-left:auto">{ } View notebook 03</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <aside class="toc">
+    <b>On this page</b>
+    <a href="#methods">Methods</a>
+    <a href="#explore">Explore the attributes</a>
+    <a href="#results">Results</a>
+    <a href="#decision">Decision</a>
+  </aside>
+
+  <main class="content">
+    <section id="methods">
+      <h2>Two methods</h2>
+      <div class="grid g2">
+        <div class="card"><h3>IQR method</h3><p>An outlier lies outside the "fences" built from the middle 50% of the data.</p>
+          <div class="formula">IQR = Q3 − Q1<br>outlier if x &lt; Q1 − 1.5·IQR &nbsp;or&nbsp; x &gt; Q3 + 1.5·IQR</div></div>
+        <div class="card"><h3>Z-score method</h3><p>An outlier is more than three standard deviations away from the mean.</p>
+          <div class="formula">z = (x − mean) / std<br>outlier if |z| &gt; 3</div></div>
+      </div>
+    </section>
+
+    <section id="explore">
+      <h2>Explore the attributes</h2>
+      <p>The box shows Q1–Q3, the whiskers end at the IQR fences, and the dots are a sample of the outliers.
+        The dashed lines show where each method starts to flag values.</p>
+      <div class="tabs" id="attr-tabs">
+        <button data-a="lead_time" class="on">lead_time</button><button data-a="adr">adr</button>
+        <button data-a="total_nights">total_nights</button><button data-a="total_guests">total_guests</button>
+      </div>
+      <div class="chart"><div id="box" style="height:340px"></div></div>
+      <p class="figcap" id="box-cap"></p>
+    </section>
+
+    <section id="results">
+      <h2>Results</h2>
+      <table class="t">
+        <thead><tr><th>Attribute</th><th>IQR upper fence</th><th>IQR outliers</th><th>Z-score outliers</th><th>Evaluation</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>lead_time</td><td class="num">297 days</td><td class="num">2,353</td><td class="num">1,043</td><td>Real early bookings, often groups</td><td><span class="pill keep">Keep</span></td></tr>
+          <tr><td>adr</td><td class="num">€226.7</td><td class="num">2,511</td><td class="num">876</td><td>July–August and large rooms (F, G)</td><td><span class="pill keep">Keep</span></td></tr>
+          <tr><td>total_nights</td><td class="num">9.5 nights</td><td class="num">2,990</td><td class="num">1,552</td><td>Real long stays</td><td><span class="pill keep">Keep</span></td></tr>
+          <tr><td>total_guests</td><td class="num">2 (IQR = 0)</td><td class="num">29,939</td><td class="num">152</td><td>17 bookings with 20–55 adults at €0 or 9–10 babies</td><td><span class="pill remove">Remove 17</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="decision">
+      <h2>Decision</h2>
+      <div class="callout"><b>Finding</b>For <code>total_guests</code>, Q1 = Q3 = 2, so the IQR is 0 and the IQR method flags almost 30,000
+        normal bookings. The Z-score was used instead. Only the 17 bookings with more than 5 guests are impossible values and were removed;
+        all other extreme values describe real customer behaviour and were kept.</div>
+    </section>
+
+    <div class="pager">
+      <a href="preprocessing.html"><small>← Previous</small>02 · Preprocessing</a>
+      <a class="next" href="warehouse.html"><small>Next →</small>04 · Data Warehouse</a>
+    </div>
+  </main>
+</div>
+
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script>
+  const UNITS = { lead_time: "days", adr: "€ per night", total_nights: "nights", total_guests: "guests" };
+  let BOX;
+  function draw(a) {
+    const s = BOX[a];
+    const traces = [{
+      type: "box", orientation: "h", y: [a], name: a, q1: [s.q1], median: [s.med], q3: [s.q3],
+      lowerfence: [s.lf], upperfence: [s.uf], fillcolor: "rgba(37,99,235,.15)", line: { color: "#2563eb" }, hoverinfo: "x",
+    }, {
+      type: "scatter", mode: "markers", x: s.outliers, y: s.outliers.map(() => a),
+      marker: { color: "#f97316", size: 6, opacity: .45 }, hovertemplate: "%{x}<extra>outlier</extra>",
+    }];
+    const shapes = [["IQR fence", s.iqr_hi, "#2563eb"], ["Z = 3", s.z_hi, "#10b981"]].map(([n, x, c]) => (
+      { type: "line", x0: x, x1: x, y0: 0, y1: 1, yref: "paper", line: { color: c, dash: "dash", width: 2 } }));
+    const ann = [["IQR fence", s.iqr_hi, "#2563eb", 1.08], ["|z| = 3", s.z_hi, "#10b981", .96]].map(([t, x, c, y]) => (
+      { x, y, yref: "paper", text: `${t}: ${(+x).toFixed(1)}`, showarrow: false, font: { color: c, size: 11 }, xanchor: "left", xshift: 4 }));
+    Plotly.react("box", traces, PLOT.layout({ shapes, annotations: ann, yaxis: { showticklabels: false },
+      xaxis: { title: UNITS[a], gridcolor: "#232327", zeroline: false }, margin: { l: 20, r: 20, t: 30, b: 50 } }), PLOT.config);
+    document.getElementById("box-cap").textContent =
+      `${a}: Q1 = ${s.q1}, median = ${s.med}, Q3 = ${s.q3}, maximum = ${s.max}.`;
+  }
+  fetch("assets/data/outlier_box.json").then(r => r.json()).then(d => { BOX = d; draw("lead_time"); });
+  document.querySelectorAll("#attr-tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#attr-tabs button").forEach(x => x.classList.toggle("on", x === b)); draw(b.dataset.a);
+  });
+</script>
+</body>
+</html>

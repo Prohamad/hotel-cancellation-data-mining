@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/dashboard.css?v=1794044526">
+</head>
+<body class="dash-page">
+<div class="dash-bg"></div>
+<div id="nav"></div>
+
+<header class="dash-head">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">BI dashboard · live from the data warehouse</div>
+      <h1>Bookings, cancellations and revenue</h1>
+    </div>
+    <div class="dash-status" id="status"><span class="dot"></span>Loading warehouse…</div>
+  </div>
+</header>
+
+<!-- ===== filter bar ===== -->
+<div class="filters">
+  <div class="wrap">
+    <label>Hotel<select data-f="hotel_name"></select></label>
+    <label>Year<select data-f="year"></select></label>
+    <label>Season<select data-f="season"></select></label>
+    <label>Month<select data-f="month_name"></select></label>
+    <label>Market segment<select data-f="market_segment"></select></label>
+    <label>Customer type<select data-f="customer_type"></select></label>
+    <label>Deposit<select data-f="deposit_type"></select></label>
+    <button class="reset" id="reset">Reset</button>
+  </div>
+</div>
+
+<main class="wrap dash">
+  <div class="chips" id="chips"></div>
+
+  <!-- KPIs -->
+  <div class="dk">
+    <div class="glass dkpi hero-k"><span>Cancellation rate <em class="live"><i></i>LIVE</em></span><b id="k-rate">–</b><small id="k-rate2"></small></div>
+    <div class="glass dkpi"><span>Bookings</span><b id="k-n">–</b><small id="k-n2"></small></div>
+    <div class="glass dkpi"><span>Booked revenue</span><b id="k-booked">–</b><small>adr × nights</small></div>
+    <div class="glass dkpi"><span>Revenue lost</span><b id="k-lost">–</b><small id="k-lost2"></small></div>
+    <div class="glass dkpi"><span>Avg daily rate</span><b id="k-adr">–</b><small>per night</small></div>
+    <div class="glass dkpi"><span>Avg lead time</span><b id="k-lead">–</b><small id="k-nights"></small></div>
+  </div>
+
+  <div class="dgrid">
+    <div class="glass panel wide"><div class="ph"><h3>Bookings by arrival month</h3><span id="m-scale">1 dot ≈ 200 bookings</span></div>
+      <div class="matrix" id="c-matrix"></div>
+      <div class="mleg"><span><i style="background:#e2e8f0"></i>not canceled</span><span><i style="background:#f97316"></i>canceled</span><span>hover a column for numbers</span></div></div>
+    <div class="glass panel"><div class="ph"><h3>Bookings by hotel</h3><span>click to filter</span></div><div id="c-hotel" class="cv"></div></div>
+    <div class="glass panel wide"><div class="ph"><h3>Cancellation rate by month</h3><span>% canceled</span></div><div id="c-trend" class="cv" style="height:240px"></div></div>
+    <div class="glass panel"><div class="ph"><h3>Revenue lost by segment</h3><span>click to filter</span></div><div id="c-seg" class="cv" style="height:240px"></div></div>
+    <div class="glass panel"><div class="ph"><h3>Risk by lead time</h3><span>% canceled</span></div><div id="c-lead" class="cv"></div></div>
+    <div class="glass panel"><div class="ph"><h3>Daily rate by month</h3><span>€ per night</span></div><div id="c-adr" class="cv"></div></div>
+    <div class="glass panel"><div class="ph"><h3>Special requests</h3><span>% canceled</span></div><div id="c-req" class="cv"></div></div>
+    <div class="glass panel"><div class="ph"><h3>Customer × deposit</h3><span>% canceled · n ≥ 20</span></div><div id="c-heat" class="cv"></div></div>
+    <div class="glass panel wide"><div class="ph"><h3>Top 10 guest countries</h3><span>bookings · % canceled</span></div><div id="c-country" class="cv" style="height:260px"></div></div>
+  </div>
+  <p class="dnote">Source: star schema of <a href="warehouse.html">notebook 04</a> · Fact_Booking joined with its dimensions · 86,637 bookings · revenue lost = booked revenue of canceled bookings.</p>
+</main>
+
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/vendor/sqljs/sql-wasm.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/dw.js?v=1794044526"></script>
+<script src="assets/js/dashboard.js?v=1794044526"></script>
+</body>
+</html>

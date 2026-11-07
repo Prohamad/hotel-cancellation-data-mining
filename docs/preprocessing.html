@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From 119,390 rows to a clean dataset · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 02</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 02 · Preprocessing</div>
+    <h1>From 119,390 rows to a clean dataset</h1>
+    <p class="lead">Each step was logged with the number of rows before and after it. Rows are only removed when they are copies or impossible values; everything else is repaired or kept.</p>
+    <div class="meta"><span class="pill remove">−31,994 duplicates</span><span class="pill remove">−759 invalid</span><span class="pill ">4 attributes filled</span><span class="pill keep">9 engineered</span><a class="nb-link" href="nb/02.html" style="margin-left:auto">{ } View notebook 02</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#funnel">Row funnel</a><a href="#steps">Steps</a><a href="#features">Engineered attributes</a></aside>
+  <main class="content">
+
+    <section id="funnel">
+      <h2>Row funnel</h2>
+      <div class="funnel" id="funnel"></div>
+    </section>
+    <section id="steps">
+      <h2>Steps</h2>
+      <div class="timeline">
+        <div class="tl"><span class="num">01</span><div><h3>Remove exact duplicates</h3><p>The file has no booking ID, so identical rows cannot be told apart. Copies would appear in both the training and the test set and inflate the scores.</p><span class="pill remove">−31,994 rows</span></div></div>
+        <div class="tl"><span class="num">02</span><div><h3>Remove invalid records</h3><p>0 guests (166), 0 nights (651; 60 have both), negative adr (1), adr of €5,400 (1).</p><span class="pill remove">−759 rows</span></div></div>
+        <div class="tl"><span class="num">03</span><div><h3>Handle missing values</h3><p><code>children</code> → 0 (4 rows) · <code>country</code> → "Unknown" (488) · <code>agent</code> / <code>company</code> → 0/1 flags <code>has_agent</code>, <code>has_company</code>.</p><span class="pill">0 rows removed</span></div></div>
+        <div class="tl"><span class="num">04</span><div><h3>Fix inconsistent categories</h3><p><code>meal = "Undefined"</code> merged into <code>"SC"</code> — both mean no meal package (492 rows).</p><span class="pill">0 rows removed</span></div></div>
+        <div class="tl"><span class="num">05</span><div><h3>Feature engineering</h3><p>Nine new attributes for analysis and the data warehouse (below).</p><span class="pill keep">+9 attributes</span></div></div>
+        <div class="tl"><span class="num">06</span><div><h3>Outlier analysis</h3><p>17 impossible guest counts removed in <a href="outliers.html">stage 03</a>.</p><span class="pill remove">−17 rows</span></div></div>
+      </div>
+    </section>
+    <section id="features">
+      <h2>Engineered attributes</h2>
+      <table class="t"><thead><tr><th>Attribute</th><th>How it is computed</th><th>Used for</th></tr></thead><tbody>
+        <tr><td><code>arrival_date</code></td><td>year + month + day of month</td><td>Dim_Date</td></tr>
+        <tr><td><code>arrival_month_num</code></td><td>month name → 1–12</td><td>classification, sorting</td></tr>
+        <tr><td><code>season</code></td><td>month → Winter / Spring / Summer / Autumn</td><td>OLAP slice</td></tr>
+        <tr><td><code>total_nights</code></td><td>weekend nights + week nights</td><td>EDA, clustering</td></tr>
+        <tr><td><code>total_guests</code></td><td>adults + children + babies</td><td>outliers, clustering</td></tr>
+        <tr><td><code>is_family</code></td><td>children + babies &gt; 0</td><td>EDA</td></tr>
+        <tr><td><code>room_changed</code></td><td>reserved ≠ assigned room</td><td>EDA (not for prediction)</td></tr>
+        <tr><td><code>booked_revenue</code></td><td>adr × total_nights</td><td>data warehouse</td></tr>
+        <tr><td><code>realized_revenue</code></td><td>booked revenue if not canceled, else 0</td><td>data warehouse</td></tr>
+      </tbody></table>
+    </section>
+    <div class="pager"><a href="data.html"><small>← Previous</small>01 · Data Understanding</a><a class="next" href="outliers.html"><small>Next →</small>03 · Outlier Analysis</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+const F = [["Raw data", 119390, ""], ["Remove duplicates", 87396, "−31,994"], ["Remove invalid rows", 86637, "−759"],
+           ["Missing values & categories", 86637, "repaired"], ["Remove outliers", 86620, "−17"]];
+document.getElementById("funnel").innerHTML = F.map(([t, n, d], i) =>
+  `<div class="fn rv"><div class="fl"><span class="num">0${i + 1}</span><b>${t}</b></div><div class="fb"><i style="--w:${n / 119390 * 100}%"></i></div>
+   <div class="fv"><b>${STAGE.fmt(n)}</b><small>${d}</small></div></div>`).join("");
+initReveal();
+</script>
+</body>
+</html>

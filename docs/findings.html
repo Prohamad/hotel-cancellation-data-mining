@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What the data tells hotels · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / Findings</div>
+    <div class="eyebrow" style="margin-top:14px">Findings</div>
+    <h1>What the data tells hotels</h1>
+    <p class="lead">Answers to the three research questions, recommendations and the limits of the analysis.</p>
+    <div class="meta"><span class="pill ">3 research questions</span><span class="pill ">5 classifiers</span><span class="pill ">86,620 bookings</span></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#answers">Answers</a><a href="#recs">Recommendations</a><a href="#limits">Limitations</a></aside>
+  <main class="content">
+
+    <section id="answers">
+      <h2>Answers</h2>
+      <div class="ans">
+        <div class="card"><div class="top-a"><span class="num">RQ1</span><span class="chip">classification</span></div><h3>Can cancellation be predicted at booking time?</h3>
+          <p><b>Yes, partly.</b> The random forest classifies 80.7% of bookings correctly (AUC 0.837, F1 59.6%) and finds about half of the cancellations.
+          Lead time is the strongest attribute: 9% of bookings made within 8 days are canceled, 33% of the rest. Non Refund deposits (94.7%), Online TA (35.5%) and Transient customers (30.3%) carry the highest risk.</p><a class="go" href="classification.html">Classification</a></div>
+        <div class="card"><div class="top-a"><span class="num">RQ2</span><span class="chip">numeric prediction</span></div><h3>Does ADR vary by month and hotel type?</h3>
+          <p><b>Yes.</b> August is about €49 per night above April and January €31 below. The Resort Hotel ranges from €51 (January) to €189 (August); the City Hotel from €87 to €127. Decision tree regression explains 75.4% of ADR variance.</p><a class="go" href="regression.html">Regression</a></div>
+        <div class="card"><div class="top-a"><span class="num">RQ3</span><span class="chip">clustering</span></div><h3>Can bookings be grouped into segments?</h3>
+          <p><b>Yes, into four.</b> Large, expensive bookings are canceled most (39%); single guests and guests with special requests least (19–20%). Silhouette 0.32 — the segments are only moderately separated.</p><a class="go" href="clustering.html">Clustering</a></div>
+      </div>
+    </section>
+    <section id="recs">
+      <h2>Recommendations for hotels</h2>
+      <div class="grid g2">
+        <div class="inkcard"><h3>Plan overbooking <i>01</i></h3><p>Use the predicted cancellation probability per booking, not one average rate, to decide how many rooms to overbook.</p></div>
+        <div class="inkcard"><h3>Target early bookings <i>02</i></h3><p>Bookings made months ahead through online agents are the riskiest — send reminders or ask for a deposit closer to arrival.</p></div>
+        <div class="inkcard"><h3>Encourage special requests <i>03</i></h3><p>Guests who add requests cancel far less; asking about preferences after booking may increase commitment.</p></div>
+        <div class="inkcard"><h3>Price by season <i>04</i></h3><p>Resort prices nearly quadruple in summer; cancellation is also higher in peak months, so peak bookings need the closest monitoring.</p></div>
+      </div>
+    </section>
+    <section id="limits">
+      <h2>Limitations</h2>
+      <table class="t"><tbody>
+        <tr><td><b>Class imbalance</b></td><td>At the default 0.5 threshold, all models detect at most about half of the canceled bookings.</td></tr>
+        <tr><td><b>Scope</b></td><td>Two hotels in Portugal, 2015–2017 — results may not transfer to other hotels or to the period after 2020.</td></tr>
+        <tr><td><b>Missing context</b></td><td>No price changes after booking, competitor prices or customer history beyond previous cancellations.</td></tr>
+        <tr><td><b>Warehouse rows</b></td><td>The data warehouse holds 86,637 bookings (before removing the 17 outliers); the models use 86,620.</td></tr>
+      </tbody></table>
+    </section>
+    
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+</script>
+</body>
+</html>

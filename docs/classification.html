@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can we predict a cancellation at booking time · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 06</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 06 · Classification</div>
+    <h1>Can we predict a cancellation at booking time?</h1>
+    <p class="lead">Five classifiers were trained on the same stratified 80/20 split (69,296 training / 17,324 test bookings) using 25 attributes known when the booking is made. Each model was tuned with cross-validation on the training set only.</p>
+    <div class="meta"><span class="pill ">5 classifiers</span><span class="pill keep">best accuracy 80.7%</span><span class="pill keep">best AUC 0.837</span><a class="nb-link" href="nb/06.html" style="margin-left:auto">{ } View notebook 06</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#setup">Setup</a><a href="#tree">Decision tree</a><a href="#models">Five models</a><a href="#compare">Comparison</a><a href="#importance">What matters</a></aside>
+  <main class="content">
+
+    <section id="setup">
+      <h2>Setup</h2>
+      <div class="grid g3">
+        <div class="card"><span class="num">X</span><h3 style="margin-top:12px">25 attributes → 53 columns</h3><p>18 numeric + 7 categorical (one-hot). Attributes recorded after the outcome are excluded: reservation_status, assigned_room_type, room_changed, parking spaces, country, realized_revenue.</p></div>
+        <div class="card"><span class="num">y</span><h3 style="margin-top:12px">is_canceled</h3><p>Positive class: Canceled (27.7%). Majority voting alone gives 72.3% accuracy — every model must beat this.</p></div>
+        <div class="card"><span class="num">CV</span><h3 style="margin-top:12px">Holdout + cross-validation</h3><p>Stratified 80/20 holdout. Hyperparameters chosen with stratified 10-fold (tree) or 5-fold GridSearchCV; the test set is used once.</p></div>
+      </div>
+    </section>
+    <section id="tree">
+      <h2>Decision tree: choosing the depth</h2>
+      <p>The root split, calculated by hand with information gain, is <b>lead_time ≤ 8.5</b> (H(D) = 0.851 bits, Gain = 0.041) — the same split scikit-learn chooses.
+        The depth was then selected with stratified 10-fold cross-validation.</p>
+      <div class="chart"><div id="c-depth" style="height:320px"></div></div>
+      <p class="figcap">Validation error is lowest at max_depth = 9. Deeper trees keep lowering the training error but the validation error rises — overfitting.</p>
+    </section>
+    <section id="models">
+      <h2>Five models</h2>
+      <div class="tabs" id="t-model"></div>
+      <div class="grid g2" style="align-items:start">
+        <div class="card" id="m-card"></div>
+        <div class="card"><h3>Confusion matrix (test set)</h3><div id="c-cm" style="height:260px"></div></div>
+      </div>
+    </section>
+    <section id="compare">
+      <h2>Comparison</h2>
+      <div class="tabs" id="t-metric"><button class="on" data-k="F1">F1</button><button data-k="Accuracy">Accuracy</button><button data-k="Precision">Precision</button><button data-k="Recall">Recall</button><button data-k="AUC">AUC</button></div>
+      <div class="chart"><div id="c-cmp" style="height:300px"></div></div>
+      <table class="t" style="margin-top:14px" id="cmp-t"></table>
+    </section>
+    <section id="importance">
+      <h2>What matters</h2>
+      <div class="grid g2" style="align-items:start">
+        <div class="chart"><div id="c-imp" style="height:320px"></div><p class="figcap">Random forest · top attributes by importance</p></div>
+        <div class="callout"><b>Finding</b>The <b>random forest</b> is the best model (80.7% accuracy, F1 59.6%, AUC 0.837). The <b>decision tree</b> is close (79.2%) and easy to explain.
+          Naive Bayes finds the most cancellations but raises the most false alarms — the trade-off between precision and recall.
+          <br><br>Lead time, price, arrival date and special requests carry most of the signal.</div>
+      </div>
+    </section>
+    <div class="pager"><a href="eda.html"><small>← Previous</small>05 · Exploratory Analysis</a><a class="next" href="clustering.html"><small>Next →</small>07 · Clustering</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+const M = {
+  "Decision Tree":       { tune: "criterion = entropy, max_depth = 9 (10-fold CV)", cm: [2139, 2655, 950, 11580], acc: 79.19, pre: 69.25, rec: 44.62, f1: 54.27, auc: .800,
+                           how: "Splits on the attribute with the highest information gain; each leaf predicts by majority voting." },
+  "Naive Bayes":         { tune: "Laplacian correction (alpha = 1), lead_time and adr discretised", cm: [2802, 1992, 2808, 9722], acc: 72.29, pre: 49.95, rec: 58.45, f1: 53.86, auc: .751,
+                           how: "Score(C) = P(C) × Π P(xᵢ | C) from frequency tables; picks the class with the higher score." },
+  "k-NN":                { tune: "k = 31 (validation data), MinMax scaling", cm: [1792, 3002, 930, 11600], acc: 77.30, pre: 65.83, rec: 37.38, f1: 47.68, auc: .763,
+                           how: "Euclidean distance to all training bookings; majority class of the 31 nearest." },
+  "Logistic Regression": { tune: "C = 100, L1 penalty (GridSearchCV, 5-fold)", cm: [1622, 3172, 673, 11857], acc: 77.81, pre: 70.68, rec: 33.83, f1: 45.76, auc: .779,
+                           how: "Linear score turned into a probability by the sigmoid; threshold 0.5." },
+  "Random Forest":       { tune: "200 trees, max_depth = 30 (GridSearchCV, 5-fold)", cm: [2462, 2332, 1006, 11524], acc: 80.73, pre: 70.99, rec: 51.36, f1: 59.60, auc: .837,
+                           how: "Many trees on bootstrap samples and random attribute subsets; majority vote of the trees." },
+};
+const names = Object.keys(M);
+document.getElementById("t-model").innerHTML = names.map((n, i) => `<button class="${i ? "" : "on"}" data-k="${n}">${n}</button>`).join("");
+const show = n => { const m = M[n];
+  document.getElementById("m-card").innerHTML = `<h3>${n}</h3><p>${m.how}</p><p><b>Tuning:</b> ${m.tune}</p>
+    <div class="mstats">${[["Accuracy", m.acc], ["Precision", m.pre], ["Recall", m.rec], ["F1", m.f1]].map(([k, v]) =>
+      `<div><small>${k}</small><b>${v.toFixed(1)}%</b><i style="--w:${v}%"></i></div>`).join("")}<div><small>AUC</small><b>${m.auc.toFixed(3)}</b><i style="--w:${m.auc * 100}%"></i></div></div>`;
+  const [TP, FN, FP, TN] = m.cm;
+  Plotly.react("c-cm", [{ type: "heatmap", x: ["Pred. Canceled", "Pred. Not canceled"], y: ["Not canceled", "Canceled"], z: [[FP, TN], [TP, FN]],
+    text: [[`FP<br>${STAGE.fmt(FP)}`, `TN<br>${STAGE.fmt(TN)}`], [`TP<br>${STAGE.fmt(TP)}`, `FN<br>${STAGE.fmt(FN)}`]], texttemplate: "%{text}", textfont: { size: 14 },
+    colorscale: [[0, "#ecfeff"], [.5, "#22d3ee"], [1, "#2563eb"]], showscale: false, xgap: 4, ygap: 4, hoverinfo: "skip" }],
+    PLOT.layout({ margin: { l: 90, r: 10, t: 6, b: 40 }, xaxis: { type: "category" }, yaxis: { type: "category", title: "actual" } }), PLOT.config); };
+STAGE.tabs("t-model", show); show("Decision Tree");
+const KEY = { F1: "f1", Accuracy: "acc", Precision: "pre", Recall: "rec", AUC: "auc" };
+const cmp = k => { const s = [...names].sort((a, b) => M[b][KEY[k]] - M[a][KEY[k]]), v = s.map(n => M[n][KEY[k]]);
+  Plotly.react("c-cmp", [{ type: "bar", orientation: "h", y: s, x: v, text: v.map(x => k === "AUC" ? x.toFixed(3) : x.toFixed(1) + "%"), textposition: "outside", cliponaxis: false,
+    marker: { color: s.map((n, i) => i ? "#cbd5e1" : STAGE.C.blue) } }],
+    PLOT.layout({ margin: { l: 140, r: 60, t: 10, b: 30 }, yaxis: { type: "category", autorange: "reversed" },
+      xaxis: { gridcolor: "#232327", range: k === "AUC" ? [.5, .9] : [0, 100] } }), PLOT.config); };
+STAGE.tabs("t-metric", cmp); cmp("F1");
+document.getElementById("cmp-t").innerHTML = STAGE.table(["Model", "Accuracy", "Precision", "Recall", "F1", "AUC"],
+  names.map(n => [n, M[n].acc.toFixed(1) + "%", M[n].pre.toFixed(1) + "%", M[n].rec.toFixed(1) + "%", M[n].f1.toFixed(1) + "%", M[n].auc.toFixed(3)]), { num: [1, 2, 3, 4, 5] });
+const CV = [[.2767,.2767],[.2767,.2767],[.2271,.2271],[.2161,.2162],[.2117,.2122],[.2096,.2106],[.2069,.2088],[.2040,.2078],[.2016,.2076],[.1981,.2091],
+            [.1938,.2097],[.1886,.2095],[.1827,.2116],[.1756,.2135],[.1674,.2169],[.1578,.2179],[.1479,.2219],[.1364,.2258],[.1252,.2288],[.1136,.2336]];
+const d = CV.map((_, i) => i + 1);
+Plotly.react("c-depth", [{ type: "scatter", mode: "lines+markers", name: "Training error", x: d, y: CV.map(r => r[0]), line: { color: STAGE.C.cyan, width: 2.5 } },
+  { type: "scatter", mode: "lines+markers", name: "Validation error", x: d, y: CV.map(r => r[1]), line: { color: STAGE.C.orange, width: 2.5 } }],
+  PLOT.layout({ showlegend: true, legend: { orientation: "h", y: 1.1 }, xaxis: { title: "max_depth", dtick: 1, gridcolor: "#232327" }, yaxis: { title: "error rate", gridcolor: "#232327" },
+    shapes: [{ type: "line", x0: 9, x1: 9, y0: 0, y1: 1, yref: "paper", line: { dash: "dash", color: "#0b1220" } }],
+    annotations: [{ x: 9, y: .27, text: "good fit · depth 9", showarrow: false, xanchor: "left", xshift: 6 }] }), PLOT.config);
+const IMP = [["lead_time", .182], ["adr", .129], ["arrival_date_day_of_month", .095], ["arrival_date_week_number", .085], ["total_of_special_requests", .073],
+             ["stays_in_week_nights", .060], ["arrival_month_num", .049], ["stays_in_weekend_nights", .036]].reverse();
+Plotly.react("c-imp", [{ type: "bar", orientation: "h", y: IMP.map(r => r[0]), x: IMP.map(r => r[1]), marker: { color: STAGE.C.blue },
+  text: IMP.map(r => r[1].toFixed(3)), textposition: "outside", cliponaxis: false }],
+  PLOT.layout({ margin: { l: 190, r: 50, t: 10, b: 30 }, yaxis: { type: "category" }, xaxis: { gridcolor: "#232327" } }), PLOT.config);
+</script>
+</body>
+</html>

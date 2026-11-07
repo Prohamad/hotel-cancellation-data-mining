@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How much will a room cost per night · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 08</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 08 · Numeric Prediction</div>
+    <h1>How much will a room cost per night?</h1>
+    <p class="lead">Linear regression and decision tree regression predict the average daily rate (ADR) of 85,582 paid bookings from attributes known at booking time.</p>
+    <div class="meta"><span class="pill keep">R² = 0.754</span><span class="pill ">RMSE €24.9</span><span class="pill ">August +€49</span><a class="nb-link" href="nb/08.html" style="margin-left:auto">{ } View notebook 08</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#simple">Simple regression</a><a href="#season">Seasonality</a><a href="#tree">Regression tree</a><a href="#compare">Comparison</a></aside>
+  <main class="content">
+
+    <section id="simple">
+      <h2>Simple linear regression</h2>
+      <p>With one feature, <code>ŷ = b + w·x</code>. Using <code>total_guests</code> (the attribute most related to ADR, r = 0.47):</p>
+      <div class="formula">ŷ = 39.51 + 33.95 × total_guests &nbsp;&nbsp;→&nbsp;&nbsp; 3 guests: 39.51 + 33.95 × 3 = €141.37 &nbsp;·&nbsp; R² = 0.223</div>
+      <div class="calc card" style="margin-top:14px"><h3>Try it</h3><input type="range" min="1" max="5" value="2" id="g">
+        <div class="calc-out"><span><b id="g-n">2</b> guests</span><span>→</span><b class="gt" id="g-y">€107.41</b><small>predicted per night</small></div></div>
+    </section>
+    <section id="season">
+      <h2>Seasonality (multiple linear regression)</h2>
+      <p>With all 49 features the model explains 64% of the variance (10-fold CV: 0.645 ± 0.010). The weight of each month shows its price effect compared with April, all other features fixed.</p>
+      <div class="chart"><div id="c-month" style="height:300px"></div></div>
+    </section>
+    <section id="tree">
+      <h2>Decision tree regression</h2>
+      <p>A tree without limits reaches depth 50 and overfits (training RMSE €4.1, test €26.1). 10-fold cross-validation chooses <b>max_depth = 16</b>.</p>
+      <div class="chart"><div id="c-depth" style="height:280px"></div></div>
+    </section>
+    <section id="compare">
+      <h2>Comparison</h2>
+      <table class="t"><thead><tr><th>Model</th><th>R²</th><th>RMSE</th><th>MAE</th></tr></thead><tbody>
+        <tr><td>Simple linear (total_guests)</td><td class="num">0.223</td><td class="num">–</td><td class="num">–</td></tr>
+        <tr><td>Multiple linear (49 features)</td><td class="num">0.639</td><td class="num">€30.2</td><td class="num">€22.3</td></tr>
+        <tr><td><b>Decision tree (depth 16)</b></td><td class="num"><b>0.754</b></td><td class="num"><b>€24.9</b></td><td class="num"><b>€15.8</b></td></tr>
+      </tbody></table>
+      <div class="callout" style="margin-top:14px"><b>Finding</b>Price is strongly seasonal — the Resort Hotel goes from €51 in January to €189 in August — and does not change in a straight line, which is why the tree beats linear regression.</div>
+    </section>
+    <div class="pager"><a href="clustering.html"><small>← Previous</small>07 · Clustering</a><a class="next" href="findings.html"><small>Next →</small>Findings</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+const g = document.getElementById("g");
+g.oninput = () => { document.getElementById("g-n").textContent = g.value; document.getElementById("g-y").textContent = "€" + (39.51 + 33.95 * g.value).toFixed(2); };
+const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], W = [-30.5,-28.1,-19.3,0,11.8,19.7,35.6,49.3,29.7,8.8,-8.9,-4.8];
+Plotly.react("c-month", [{ type: "bar", x: M, y: W, marker: { color: W.map(v => v >= 0 ? STAGE.C.orange : STAGE.C.blue) },
+  text: W.map(v => (v > 0 ? "+" : "") + v), textposition: "outside", cliponaxis: false }],
+  PLOT.layout({ xaxis: { type: "category" }, yaxis: { title: "€ vs April", gridcolor: "#232327", zeroline: true, zerolinecolor: "#94a3b8" } }), PLOT.config);
+const D = [2,4,6,8,10,12,14,16,18,20,22,24], R = [43.75,38.67,32.75,29.58,27.17,25.91,24.97,24.63,24.80,24.77,25.14,25.24];
+Plotly.react("c-depth", [{ type: "scatter", mode: "lines+markers", x: D, y: R, line: { color: STAGE.C.orange, width: 2.5 }, marker: { size: 7, color: D.map(d => d === 16 ? "#0b1220" : STAGE.C.orange) } }],
+  PLOT.layout({ xaxis: { title: "max_depth", gridcolor: "#232327" }, yaxis: { title: "CV RMSE (€)", gridcolor: "#232327" } }), PLOT.config);
+</script>
+</body>
+</html>

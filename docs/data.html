@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>119,390 bookings, 32 attributes, one question · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 01</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 01 · Data Understanding</div>
+    <h1>119,390 bookings, 32 attributes, one question</h1>
+    <p class="lead">The Hotel Booking Demand dataset records every booking of two hotels in Portugal that was due to arrive between July 2015 and August 2017. Each row is one booking; the class label <code>is_canceled</code> says whether it was canceled.</p>
+    <div class="meta"><span class="pill ">119,390 rows</span><span class="pill ">32 attributes</span><span class="pill ">4 with missing values</span><span class="pill remove">31,994 duplicates</span><a class="nb-link" href="nb/01.html" style="margin-left:auto">{ } View notebook 01</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#source">Source</a><a href="#attributes">Attributes</a><a href="#missing">Missing values</a><a href="#label">Class label</a></aside>
+  <main class="content">
+
+    <section id="source">
+      <h2>Source</h2>
+      <div class="grid g3">
+        <div class="card"><span class="num">01</span><h3 style="margin-top:12px">Original paper</h3><p>Antonio, de Almeida &amp; Nunes (2019). <i>Hotel booking demand datasets.</i> Data in Brief 22, 41–49.</p></div>
+        <div class="card"><span class="num">02</span><h3 style="margin-top:12px">Download</h3><p>Kaggle · <a href="https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand" target="_blank" rel="noopener">jessemostipak/hotel-booking-demand</a> (<code>hotel_bookings.csv</code>, 16.9 MB).</p></div>
+        <div class="card"><span class="num">03</span><h3 style="margin-top:12px">Scope</h3><p>City Hotel (Lisbon) and Resort Hotel (Algarve), arrivals Jul 2015 – Aug 2017.</p></div>
+      </div>
+    </section>
+    <section id="attributes">
+      <h2>Attributes</h2>
+      <p>All 32 attributes as loaded with <code>pd.read_csv</code>. Type the name of an attribute to filter the table.</p>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><b>hotel_bookings.csv</b>
+        <input id="q" class="search" placeholder="Filter attributes…"><span class="r" id="q-n"></span></div>
+        <div class="res-scroll"><table class="t flat" id="attr"></table></div></div>
+    </section>
+    <section id="missing">
+      <h2>Missing values</h2>
+      <p>Only four attributes have missing values. <b>company</b> is empty for 94% of bookings, so it cannot be used as it is.</p>
+      <div class="chart"><div id="c-missing" style="height:240px"></div></div>
+    </section>
+    <section id="label">
+      <h2>Class label</h2>
+      <p>In the raw file 37.0% of bookings are canceled. After removing exact duplicates the rate falls to 27.6%:
+        most duplicates were canceled <b>Non Refund</b> bookings (<span id="nr"></span>).</p>
+      <div class="chart"><div id="c-label" style="height:260px"></div></div>
+      <div class="callout" style="margin-top:14px"><b>Implication</b>The classes are imbalanced (≈ 72% / 28%), so accuracy alone is not enough — precision, recall and F1 are also reported.</div>
+    </section>
+    <div class="pager"><a href="index.html"><small>← Back</small>Home</a><a class="next" href="preprocessing.html"><small>Next →</small>02 · Preprocessing</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+STAGE.load().then(({ data }) => {
+  const rows = data.attrs.map((a, i) => [i + 1, a.name, a.type, a.missing, a.unique, a.example]);
+  const draw = q => { const r = rows.filter(x => x[1].includes(q.toLowerCase()));
+    document.getElementById("attr").innerHTML = STAGE.table(["#", "attribute", "type", "missing", "unique", "first value"], r, { num: [0, 3, 4] });
+    document.getElementById("q-n").textContent = r.length + " / 32"; };
+  draw(""); document.getElementById("q").oninput = e => draw(e.target.value);
+  const m = data.attrs.filter(a => a.missing).sort((a, b) => a.missing - b.missing);
+  Plotly.react("c-missing", [{ type: "bar", orientation: "h", y: m.map(a => a.name), x: m.map(a => a.missing),
+    text: m.map(a => (a.missing / 1193.9).toFixed(1) + "%"), textposition: "outside", cliponaxis: false, marker: { color: STAGE.C.blue } }],
+    PLOT.layout({ margin: { l: 80, r: 60, t: 10, b: 30 }, yaxis: { type: "category" } }), PLOT.config);
+  const sets = [["Raw", data.cls_raw], ["After duplicates", data.cls_dedup], ["Final", data.cls_final]];
+  Plotly.react("c-label", [0, 1].map(k => ({ type: "bar", name: k ? "Canceled" : "Not canceled", x: sets.map(s => s[0]),
+    y: sets.map(s => s[1][k]), marker: { color: k ? STAGE.C.orange : STAGE.C.blue },
+    text: sets.map(s => (s[1][k] / (s[1][0] + s[1][1]) * 100).toFixed(1) + "%"), textposition: "inside" })),
+    PLOT.layout({ barmode: "stack", showlegend: true, legend: { orientation: "h", y: 1.12 } }), PLOT.config);
+  document.getElementById("nr").textContent = `${STAGE.fmt(data.nonrefund_dup[0])} Non Refund rows → ${STAGE.fmt(data.nonrefund_dup[1])} unique`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotel Booking Cancellation · CIS 517</title>
+<meta name="description" content="Predicting hotel booking cancellations with data mining: preprocessing, data warehouse, classification, clustering and regression.">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<script type="importmap">{ "imports": { "three": "./assets/vendor/three/three.module.js", "three/addons/": "./assets/vendor/three/" } }</script>
+</head>
+<body>
+<div id="nav"></div>
+
+<!-- ===== Hero: dark ink band with the pipeline as layers ===== -->
+
+<!-- ===== Hero: the course project ===== -->
+<header class="hero">
+  <div class="gridbg dark"></div>
+  <div class="glows"><i style="width:520px;height:520px;right:-120px;top:-160px;background:rgba(37,99,235,.35)"></i>
+    <i style="width:420px;height:420px;right:220px;bottom:-200px;background:rgba(16,185,129,.22)"></i></div>
+  <div class="wrap split">
+    <div>
+      <span class="tag">CIS 517 · Data Mining and Warehousing · Course project</span>
+      <h1>Hotel Booking Cancellation Prediction Using Data Mining</h1>
+      <p class="lead">A course project that follows the full knowledge discovery process — from raw hotel bookings
+        to a data warehouse, data mining models and findings that hotels can act on.</p>
+      <div class="cta"><a class="btn light" href="#project">About the project</a><a class="btn dark-ghost" href="#kdd">The KDD process</a></div>
+    </div>
+    <div class="stack" id="stack"><div class="scene"><div class="rig" id="rig"></div></div></div>
+  </div>
+  <div class="wrap">
+    <div class="proof">
+      <div class="t">Imam Abdulrahman Bin Faisal University · College of Computer Science and Information Technology</div>
+      <div class="items"><div>Field<span>Tourism &amp; Hospitality</span></div><div>Main task<span>Classification</span></div><div>Tool<span>Python</span></div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Problem & purpose ===== -->
+<section class="block" id="project">
+  <div class="wrap">
+    <div class="sec-head"><div><div class="eyebrow">The project</div><h2>Problem and purpose</h2></div>
+      <p class="lead">What we investigate, why it matters and who benefits.</p></div>
+    <div class="grid g3">
+      <div class="card rv"><span class="num">Problem</span><h3 style="margin-top:14px">Cancellations cost hotels revenue</h3>
+        <p class="muted-p">Hotels need to identify the factors associated with booking cancellations to better manage capacity and reduce revenue loss.</p></div>
+      <div class="card rv"><span class="num">Purpose</span><h3 style="margin-top:14px">Predict cancellation at booking time</h3>
+        <p class="muted-p">Analyse hotel booking data and predict whether a booking will be canceled using classification techniques, using only what is known when the booking is made.</p></div>
+      <div class="card rv"><span class="num">Who benefits</span><h3 style="margin-top:14px">Hotels, agencies, researchers</h3>
+        <p class="muted-p">Hotel managers (overbooking, staffing, deposit policy), online travel agencies (booking quality) and researchers studying cancellation behaviour.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Dataset ===== -->
+<section class="block" style="padding-top:10px">
+  <div class="wrap">
+    <div class="sec-head"><div><div class="eyebrow">The dataset</div><h2>Hotel Booking Demand</h2></div>
+      <p class="lead">Real bookings from a City Hotel in Lisbon and a Resort Hotel in the Algarve, Portugal.</p></div>
+    <div class="ds win rv">
+      <div class="ds-row"><span>Source</span><b>Kaggle · Antonio, de Almeida &amp; Nunes (2019), <i>Data in Brief</i> 22, 41–49</b></div>
+      <div class="ds-row"><span>Records</span><b>119,390 bookings</b></div>
+      <div class="ds-row"><span>Attributes</span><b>32 · numeric and categorical</b></div>
+      <div class="ds-row"><span>Period</span><b>July 2015 – August 2017</b></div>
+      <div class="ds-row"><span>Class label</span><b><code>is_canceled</code> · 1 = Canceled, 0 = Not canceled</b></div>
+      <div class="ds-row"><span>Link</span><b><a href="https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand" target="_blank" rel="noopener">kaggle.com/datasets/jessemostipak/hotel-booking-demand ↗</a></b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Research questions ===== -->
+<section class="block" style="padding-top:10px">
+  <div class="wrap">
+    <div class="sec-head"><div><div class="eyebrow">Research questions</div><h2>Three questions</h2></div>
+      <p class="lead">Each question uses a different data mining task from the course.</p></div>
+    <div class="grid g3">
+      <a class="card rq rv" href="classification.html"><div class="top"><span class="num">RQ1</span><span class="chip">classification</span></div>
+        <div class="q">Can booking cancellation be predicted from attributes known at booking time, and which classifier performs best?</div>
+        <span class="go">Classification</span></a>
+      <a class="card rq rv" href="regression.html"><div class="top"><span class="num">RQ2</span><span class="chip">numeric prediction</span></div>
+        <div class="q">Does the average daily rate (ADR) vary by arrival month and hotel type, reflecting seasonal demand?</div>
+        <span class="go">Numeric prediction</span></a>
+      <a class="card rq rv" href="clustering.html"><div class="top"><span class="num">RQ3</span><span class="chip">clustering</span></div>
+        <div class="q">Can bookings be grouped into distinct segments, and do these segments differ in cancellation?</div>
+        <span class="go">Clustering</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== KDD process ===== -->
+<section class="block" id="kdd" style="padding-top:10px">
+  <div class="wrap">
+    <div class="sec-head"><div><div class="eyebrow">Methodology</div><h2>Knowledge discovery from data (KDD)</h2></div>
+      <p class="lead">Data mining is one step of a larger process. Each step below has its own page and notebook.</p></div>
+    <div class="kdd" id="kddlist"></div>
+  </div>
+</section>
+
+<!-- ===== Explore ===== -->
+<section class="block tools" style="padding-top:10px">
+  <div class="wrap">
+    <div class="sec-head"><div><div class="eyebrow">Explore the work</div><h2>Results, data and code</h2></div></div>
+    <div class="grid g3">
+      <a class="inkcard rv" href="findings.html"><h3>Findings <i>RQ</i></h3>
+        <p>The answers to the three research questions, the knowledge discovered and the recommendations.</p>
+        <code>findings.html ↘</code></a>
+      <a class="inkcard rv" href="dashboard.html"><h3>BI dashboard <i>BI</i></h3>
+        <p>Filter the bookings by hotel, period, segment and customer type, straight from the data warehouse.</p>
+        <code>dashboard.html ↘</code></a>
+      <a class="inkcard rv" href="notebooks.html"><h3>Notebooks <i>PY</i></h3>
+        <p>All Jupyter notebooks with their code, explanations and outputs, exactly as they were run.</p>
+        <code>notebooks.html ↘</code></a>
+    </div>
+  </div>
+</section>
+
+<div id="footer"></div>
+
+<script src="assets/js/site.js?v=1794044526"></script>
+<script>
+  // KDD steps (Han, Kamber & Pei) mapped to the project pages
+  const KDD = [
+    ["Data cleaning", "Remove duplicates and invalid records, handle missing values and outliers.", "preprocessing.html", "Notebooks 02 · 03"],
+    ["Data integration", "Load the cleaned bookings into a star-schema data warehouse.", "warehouse.html", "Notebook 04"],
+    ["Data selection", "Keep only the attributes that are known when the booking is made.", "classification.html", "Notebook 06"],
+    ["Data transformation", "Encode categorical attributes, normalise and discretise, engineer features.", "preprocessing.html", "Notebooks 02 · 06"],
+    ["Data mining", "Classification, clustering and numeric prediction.", "classification.html", "Notebooks 06 · 07 · 08"],
+    ["Pattern evaluation", "Confusion matrix, accuracy, precision, recall, F1, ROC/AUC, silhouette, R².", "classification.html", "Notebooks 06 · 07 · 08"],
+    ["Knowledge presentation", "Visualisations, the dashboard, the report and this website.", "findings.html", "Notebook 05 · this site"],
+  ];
+  document.getElementById("kddlist").innerHTML = KDD.map(([t, d, href, nb], i) =>
+    `<a class="kstep rv" href="${href}"><span class="num">0${i + 1}</span><div><h3>${t}</h3><p>${d}</p></div><small>${nb}</small></a>`).join("");
+
+  // ---- hero: the KDD process as five stacked layers (01 at the top) ----
+  // ---- hero: the pipeline as five stacked layers ----
+  const LAYERS = [
+    ["Raw data", "119,390 rows", "raw"], ["Preprocessing", "86,620 rows", "clean"], ["Data warehouse", "1 fact · 6 dims", "dw"],
+    ["Data mining", "5 classifiers", "mine"], ["Insights", "dashboard", "ui"]];
+  const rig = document.getElementById("rig"), stack = document.getElementById("stack"), GAP = 92;
+  const dots = (canc, removed) => { let s = ""; for (let i = 0; i < 324; i++) s += `<i class="${i < removed ? "x" : (i * 7919 % 324) / 324 < canc ? "c" : ""}"></i>`; return s; };
+  LAYERS.forEach(([name, sub, kind], i) => {
+    const z = (2 - i) * GAP, el = document.createElement("div");
+    el.className = "layer" + (kind === "ui" ? " top" : "");
+    el.style.transform = `translateZ(${z}px)`; el.style.setProperty("--zz", (z * 1.25) + "px");
+    if (kind === "raw") el.innerHTML = `<div class="dots">${dots(.37, 0)}</div>`;
+    if (kind === "clean") el.innerHTML = `<div class="dots">${dots(.277, 90)}</div>`;
+    if (kind === "dw") el.innerHTML = `<div class="cube f" style="left:115px;top:115px"></div>` +
+      [[45,45],[124,30],[203,45],[45,203],[124,218],[203,203]].map(([x, y]) => `<div class="cube" style="left:${x}px;top:${y}px"></div>`).join("");
+    if (kind === "mine") el.innerHTML = `<svg viewBox="0 0 270 270" style="position:absolute;inset:0"><g stroke="#94a3b8" stroke-width="1.5" fill="none">
+      <path d="M135 50 L70 125 M135 50 L200 125 M70 125 L40 210 M70 125 L100 210 M200 125 L170 210 M200 125 L230 210"/></g>
+      ${[[135,50],[70,125],[200,125]].map(([x, y]) => `<rect x="${x-16}" y="${y-10}" width="32" height="20" rx="4" fill="#2a2a30"/>`).join("")}
+      ${[[40,210,"#3b82f6"],[100,210,"#fb923c"],[170,210,"#3b82f6"],[230,210,"#fb923c"]].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="11" fill="${c}"/>`).join("")}</svg>`;
+    if (kind === "ui") el.innerHTML = `<div class="ui" style="left:22px;top:24px;width:70px;height:40px;border:1px solid #33333a"></div>
+      <div class="ui" style="left:100px;top:24px;width:70px;height:40px;border:1px solid #33333a"></div>
+      <div class="ui" style="left:178px;top:24px;width:70px;height:40px;background:#fff"></div>
+      <div class="ui" style="left:22px;top:76px;width:226px;height:170px;border:1px solid #33333a">${
+        [38,52,46,70,64,88,80,96,72,60].map((h, k) => `<i style="position:absolute;bottom:14px;left:${14 + k * 20}px;width:10px;height:${h}px;border-radius:2px;background:${k % 3 === 2 ? "#fb923c" : "#3b82f6"}"></i>`).join("")}</div>`;
+    rig.appendChild(el);
+    const lbl = document.createElement("div");
+    lbl.className = "lbl"; lbl.style.top = (stack.clientHeight / 2 - (2 - i) * GAP * 0.86 - 36) + "px";
+    lbl.innerHTML = `<b><em>0${i + 1}</em>${name}</b><small>${sub}</small>`;
+    stack.appendChild(lbl);
+  });
+</script>
+</body>
+</html>

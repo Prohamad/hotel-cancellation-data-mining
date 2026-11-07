@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 03 · Outlier Analysis</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 03</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 03</div>
+    <h1>Outlier Analysis</h1>
+    <div class="meta">
+      <span class="pill">12 explanation cells</span><span class="pill">9 code cells</span><span class="pill">1 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../outliers.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-02b-outlier-analysis" class="l1">02b — Outlier Analysis</a><a href="#s-1-attributes-to-check" class="l2">1. Attributes to Check</a><a href="#s-2-iqr-method" class="l2">2. IQR Method</a><a href="#s-3-z-score-method" class="l2">3. Z-score Method</a><a href="#s-4-evaluating-the-outliers" class="l2">4. Evaluating the Outliers</a><a href="#s-4-1-total-guests-problematic-values" class="l3">4.1 total_guests: problematic values</a><a href="#s-4-2-adr-valid-observations" class="l3">4.2 adr: valid observations</a><a href="#s-4-3-lead-time-and-total-nights-valid-observations" class="l3">4.3 lead_time and total_nights: valid observations</a><a href="#s-5-handling-the-outliers" class="l2">5. Handling the Outliers</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-02b-outlier-analysis">02b — Outlier Analysis</h1>
+<p>In this notebook we:</p>
+<ul>
+<li>Identify outliers in the main numeric attributes using the <strong>IQR</strong> and <strong>Z-score</strong> methods</li>
+<li>Evaluate whether the outliers are <strong>valid observations</strong> or <strong>problematic values</strong></li>
+<li>Decide how to handle them and save the final dataset used by the models</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [1]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">FIG_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../figures"</span><span class="p">)</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_clean.csv"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">(86637, 41)
+</pre></div></div>
+<div class="cell md"><h2 id="s-1-attributes-to-check">1. Attributes to Check</h2></div>
+<div class="cell code"><div class="in"><span class="prompt">In [2]</span><pre class="src"><span class="n">ATTRIBUTES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="n">ATTRIBUTES</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>adr</th>
+      <th>total_nights</th>
+      <th>total_guests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>86637.0</td>
+      <td>86637.0</td>
+      <td>86637.0</td>
+      <td>86637.0</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>80.3</td>
+      <td>107.2</td>
+      <td>3.7</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>86.1</td>
+      <td>51.3</td>
+      <td>2.7</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>12.0</td>
+      <td>72.9</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>50.0</td>
+      <td>99.0</td>
+      <td>3.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>126.0</td>
+      <td>134.4</td>
+      <td>5.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>709.0</td>
+      <td>510.0</td>
+      <td>69.0</td>
+      <td>55.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [3]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">ATTRIBUTES</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">boxplot</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Boxplots of the numeric attributes"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"out_01_boxplots.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/03_01.png" loading="lazy" alt="Figure 1 of notebook 03"></figure></div></div>
+<div class="cell md"><h2 id="s-2-iqr-method">2. IQR Method</h2>
+<p>A value is an outlier if it is below $Q1 - 1.5 \times IQR$ or above $Q3 + 1.5 \times IQR$, where $IQR = Q3 - Q1$.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [4]</span><pre class="src"><span class="n">iqr_rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">ATTRIBUTES</span><span class="p">:</span>
+    <span class="n">q1</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.25</span><span class="p">)</span>
+    <span class="n">q3</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.75</span><span class="p">)</span>
+    <span class="n">iqr</span> <span class="o">=</span> <span class="n">q3</span> <span class="o">-</span> <span class="n">q1</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="n">q1</span> <span class="o">-</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">q3</span> <span class="o">+</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr</span>
+    <span class="n">n_out</span> <span class="o">=</span> <span class="p">((</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">lower</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">upper</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">iqr_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"attribute"</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span> <span class="s2">"Q1"</span><span class="p">:</span> <span class="n">q1</span><span class="p">,</span> <span class="s2">"Q3"</span><span class="p">:</span> <span class="n">q3</span><span class="p">,</span> <span class="s2">"lower"</span><span class="p">:</span> <span class="n">lower</span><span class="p">,</span> <span class="s2">"upper"</span><span class="p">:</span> <span class="n">upper</span><span class="p">,</span> <span class="s2">"outliers"</span><span class="p">:</span> <span class="n">n_out</span><span class="p">})</span>
+
+<span class="n">iqr_table</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">iqr_rows</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">"attribute"</span><span class="p">)</span>
+<span class="n">iqr_table</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Q1</th>
+      <th>Q3</th>
+      <th>lower</th>
+      <th>upper</th>
+      <th>outliers</th>
+    </tr>
+    <tr>
+      <th>attribute</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>lead_time</th>
+      <td>12.0</td>
+      <td>126.0</td>
+      <td>-159.0</td>
+      <td>297.0</td>
+      <td>2353</td>
+    </tr>
+    <tr>
+      <th>adr</th>
+      <td>72.9</td>
+      <td>134.4</td>
+      <td>-19.4</td>
+      <td>226.7</td>
+      <td>2511</td>
+    </tr>
+    <tr>
+      <th>total_nights</th>
+      <td>2.0</td>
+      <td>5.0</td>
+      <td>-2.5</td>
+      <td>9.5</td>
+      <td>2990</td>
+    </tr>
+    <tr>
+      <th>total_guests</th>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>29939</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h2 id="s-3-z-score-method">3. Z-score Method</h2>
+<p>$z = \frac{x - \text{mean}}{\text{std}}$ — a value is an outlier if $|z| &gt; 3$.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [5]</span><pre class="src"><span class="n">z_rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">ATTRIBUTES</span><span class="p">:</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">-</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">/</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+    <span class="n">z_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"attribute"</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span>
+                   <span class="s2">"upper limit (z = 3)"</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span>
+                   <span class="s2">"outliers"</span><span class="p">:</span> <span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()})</span>
+
+<span class="n">z_table</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">z_rows</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">"attribute"</span><span class="p">)</span>
+<span class="n">z_table</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>upper limit (z = 3)</th>
+      <th>outliers</th>
+    </tr>
+    <tr>
+      <th>attribute</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>lead_time</th>
+      <td>338.5</td>
+      <td>1043</td>
+    </tr>
+    <tr>
+      <th>adr</th>
+      <td>261.1</td>
+      <td>876</td>
+    </tr>
+    <tr>
+      <th>total_nights</th>
+      <td>11.9</td>
+      <td>1552</td>
+    </tr>
+    <tr>
+      <th>total_guests</th>
+      <td>4.4</td>
+      <td>152</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p><strong>Note:</strong> for <code>total_guests</code>, Q1 = Q3 = 2, so IQR = 0 and the IQR method flags every booking that is not
+2 guests (about 30,000). The IQR method is not suitable for this attribute; the Z-score method is used instead.</p></div>
+<div class="cell md"><h2 id="s-4-evaluating-the-outliers">4. Evaluating the Outliers</h2>
+<h3 id="s-4-1-total-guests-problematic-values">4.1 <code>total_guests</code>: problematic values</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">][[</span><span class="s2">"adults"</span><span class="p">,</span> <span class="s2">"children"</span><span class="p">,</span> <span class="s2">"babies"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]]</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>adults</th>
+      <th>children</th>
+      <th>babies</th>
+      <th>adr</th>
+      <th>market_segment</th>
+      <th>is_canceled</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>314</th>
+      <td>2</td>
+      <td>10</td>
+      <td>0</td>
+      <td>133.16</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1426</th>
+      <td>40</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1474</th>
+      <td>26</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1528</th>
+      <td>50</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1634</th>
+      <td>26</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1757</th>
+      <td>26</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1785</th>
+      <td>27</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1828</th>
+      <td>27</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1866</th>
+      <td>26</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2013</th>
+      <td>26</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Offline TA/TO</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2022</th>
+      <td>55</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2059</th>
+      <td>20</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2060</th>
+      <td>6</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2197</th>
+      <td>10</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2198</th>
+      <td>20</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.00</td>
+      <td>Direct</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>36900</th>
+      <td>2</td>
+      <td>0</td>
+      <td>10</td>
+      <td>84.45</td>
+      <td>Online TA</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>54044</th>
+      <td>1</td>
+      <td>0</td>
+      <td>9</td>
+      <td>95.00</td>
+      <td>Corporate</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p>The Z-score method flags 152 bookings with 5 or more guests. Bookings with 5 guests (135) are normal family
+bookings, but the 17 bookings with <strong>more than 5 guests</strong> are <strong>data-entry errors</strong>: 20–55 adults in one room with a price of €0, or 9–10 babies with
+1–2 adults. A hotel room does not hold these numbers of guests. They are <strong>removed</strong>.</p></div>
+<div class="cell md"><h3 id="s-4-2-adr-valid-observations">4.2 <code>adr</code>: valid observations</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">upper_adr</span> <span class="o">=</span> <span class="n">iqr_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"upper"</span><span class="p">]</span>
+<span class="n">high_adr</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">upper_adr</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Bookings with adr above"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">upper_adr</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">":"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">high_adr</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Arrival month (top 4):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">high_adr</span><span class="p">[</span><span class="s2">"arrival_date_month"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Reserved room type (top 4):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">high_adr</span><span class="p">[</span><span class="s2">"reserved_room_type"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Bookings with adr above 226.7 : 2511
+
+Arrival month (top 4):
+arrival_date_month
+August    1397
+July       574
+June       153
+May        119
+Name: count, dtype: int64
+
+Reserved room type (top 4):
+reserved_room_type
+G    587
+F    476
+D    401
+E    370
+Name: count, dtype: int64
+</pre></div></div>
+<div class="cell md"><p>High prices are mostly in summer months and in larger room types, so they are <strong>valid observations</strong>
+(peak-season and family rooms), not errors. They are <strong>kept</strong>.</p></div>
+<div class="cell md"><h3 id="s-4-3-lead-time-and-total-nights-valid-observations">4.3 <code>lead_time</code> and <code>total_nights</code>: valid observations</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"lead_time"</span><span class="p">)[[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]],</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">)[[</span><span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">]])</span>
+</pre></div><div class="out"><pre class="o-text">       lead_time market_segment customer_type  is_canceled
+3309         709         Direct     Transient            0
+47345        629         Groups     Transient            1
+47350        629         Groups     Transient            1
+44316        626         Groups     Transient            1
+47206        622         Groups     Transient            1 
+
+       total_nights market_segment    customer_type     adr
+10743            69         Direct        Transient  110.00
+10742            60         Direct        Transient  110.50
+7319             56  Offline TA/TO        Transient   25.50
+27988            56      Online TA        Transient   28.79
+41467            48      Online TA  Transient-Party    0.00
+</pre></div></div>
+<div class="cell md"><p>Bookings made up to two years in advance and stays of several weeks are possible in real hotels.
+They describe real customer behaviour (for example, early bookings are canceled more often), so they are <strong>kept</strong>.
+Decision trees are not affected by extreme values, because they split on thresholds.</p></div>
+<div class="cell md"><h2 id="s-5-handling-the-outliers">5. Handling the Outliers</h2>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Method</th>
+<th>Outliers</th>
+<th>Evaluation</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>total_guests</td>
+<td>Z-score</td>
+<td>152 (≥ 5 guests)</td>
+<td>17 bookings with &gt; 5 guests are data-entry errors</td>
+<td><strong>remove the 17</strong></td>
+</tr>
+<tr>
+<td>adr</td>
+<td>IQR / Z-score</td>
+<td>2,511 / 876</td>
+<td>peak season, large rooms</td>
+<td>keep</td>
+</tr>
+<tr>
+<td>lead_time</td>
+<td>IQR / Z-score</td>
+<td>2,353 / 1,043</td>
+<td>real early bookings</td>
+<td>keep</td>
+</tr>
+<tr>
+<td>total_nights</td>
+<td>IQR / Z-score</td>
+<td>2,990 / 1,552</td>
+<td>real long stays</td>
+<td>keep</td>
+</tr>
+</tbody>
+</table></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="n">df_final</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">before</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df_final</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> rows (removed </span><span class="si">{</span><span class="n">before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">df_final</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+<span class="n">df_final</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_final.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Saved: ../data/processed/hotel_bookings_final.csv"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">86,637 → 86,620 rows (removed 17)
+</pre><pre class="o-text">Saved: ../data/processed/hotel_bookings_final.csv
+</pre></div></div>
+    <div class="pager"><a href="02.html"><small>← Previous notebook</small>02 · Data Preprocessing</a><a class="next" href="04.html"><small>Next notebook →</small>04 · Data Warehouse</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

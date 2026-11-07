@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 02 · Data Preprocessing</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 02</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 02</div>
+    <h1>Data Preprocessing</h1>
+    <div class="meta">
+      <span class="pill">15 explanation cells</span><span class="pill">14 code cells</span><span class="pill">0 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../preprocessing.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-02-data-preprocessing" class="l1">02 · Data Preprocessing</a><a href="#s-1-setup" class="l3">1. Setup</a><a href="#s-2-duplicate-records" class="l3">2. Duplicate records</a><a href="#s-3-invalid-records" class="l3">3. Invalid records</a><a href="#s-4-missing-values" class="l3">4. Missing values</a><a href="#s-5-inconsistent-categories" class="l3">5. Inconsistent categories</a><a href="#s-6-feature-engineering" class="l3">6. Feature engineering</a><a href="#s-7-cleaning-log" class="l3">7. Cleaning log</a><a href="#s-8-final-checks" class="l3">8. Final checks</a><a href="#s-9-save-the-cleaned-dataset" class="l3">9. Save the cleaned dataset</a><a href="#s-summary" class="l2">Summary</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-02-data-preprocessing">02 · Data Preprocessing</h1>
+<p><strong>CIS 517 – Hotel Booking Cancellation Prediction Using Data Mining</strong></p>
+<p>Goal: clean the raw dataset step by step based on the findings of <code>01_data_understanding</code>
+(duplicates, invalid values, missing values, inconsistent categories), engineer new attributes,
+and save the cleaned dataset to <code>data/processed/</code>. Every step is logged with the number of rows before and after.</p></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h3 id="s-1-setup">1. Setup</h3>
+<p>Load the raw data and create a cleaning log that records how many rows each step removes.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/raw/hotel_bookings.csv"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Raw data:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="n">cleaning_log</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">log_step</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">rows_before</span><span class="p">,</span> <span class="n">rows_after</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
+    <span class="n">cleaning_log</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+        <span class="s2">"step"</span><span class="p">:</span> <span class="n">step</span><span class="p">,</span>
+        <span class="s2">"rows_before"</span><span class="p">:</span> <span class="n">rows_before</span><span class="p">,</span>
+        <span class="s2">"rows_after"</span><span class="p">:</span> <span class="n">rows_after</span><span class="p">,</span>
+        <span class="s2">"removed"</span><span class="p">:</span> <span class="n">rows_before</span> <span class="o">-</span> <span class="n">rows_after</span><span class="p">,</span>
+        <span class="s2">"note"</span><span class="p">:</span> <span class="n">note</span><span class="p">,</span>
+    <span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">rows_before</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">rows_after</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> rows (removed </span><span class="si">{</span><span class="n">rows_before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">rows_after</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Raw data: (119390, 32)
+</pre></div></div>
+<div class="cell md"><h3 id="s-2-duplicate-records">2. Duplicate records</h3>
+<p><code>01_data_understanding</code> found 31,994 exact duplicate rows (26.8%). Before removing them we check
+how they affect the data: the cancellation rate and the deposit types.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">df_nodup</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Cancellation rate with duplicates:    </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'is_canceled'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Cancellation rate without duplicates: </span><span class="si">{</span><span class="n">df_nodup</span><span class="p">[</span><span class="s1">'is_canceled'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">deposit_check</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"before"</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="s2">"deposit_type"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(),</span>
+    <span class="s2">"after"</span><span class="p">:</span> <span class="n">df_nodup</span><span class="p">[</span><span class="s2">"deposit_type"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(),</span>
+<span class="p">})</span>
+<span class="n">deposit_check</span><span class="p">[</span><span class="s2">"removed_%"</span><span class="p">]</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">deposit_check</span><span class="p">[</span><span class="s2">"after"</span><span class="p">]</span> <span class="o">/</span> <span class="n">deposit_check</span><span class="p">[</span><span class="s2">"before"</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">deposit_check</span>
+</pre></div><div class="out"><pre class="o-text">Cancellation rate with duplicates:    37.0%
+Cancellation rate without duplicates: 27.5%
+</pre><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>before</th>
+      <th>after</th>
+      <th>removed_%</th>
+    </tr>
+    <tr>
+      <th>deposit_type</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>No Deposit</th>
+      <td>104641</td>
+      <td>86251</td>
+      <td>17.6</td>
+    </tr>
+    <tr>
+      <th>Non Refund</th>
+      <td>14587</td>
+      <td>1038</td>
+      <td>92.9</td>
+    </tr>
+    <tr>
+      <th>Refundable</th>
+      <td>162</td>
+      <td>107</td>
+      <td>34.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">log_step</span><span class="p">(</span><span class="s2">"Remove exact duplicates"</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> 
+         <span class="s2">"No booking ID to tell copies apart; copies across train/test sets would inflate scores."</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Remove exact duplicates: 119,390 → 87,396 rows (removed 31,994)
+</pre></div></div>
+<div class="cell md"><h3 id="s-3-invalid-records">3. Invalid records</h3>
+<p>A booking is invalid if it is logically impossible:</p>
+<ul>
+<li><strong>0 guests</strong>: adults + children + babies = 0</li>
+<li><strong>0 nights</strong>: weekend nights + week nights = 0</li>
+<li><strong>Negative price</strong>: adr &lt; 0</li>
+<li><strong>Impossible price</strong>: adr &gt; 1,000 (a single booking of 5,400, far above all others)</li>
+</ul>
+<p>We first count each rule, then remove all records that break at least one of them.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">guests</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adults"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"children"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"babies"</span><span class="p">]</span>
+<span class="n">nights</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"stays_in_weekend_nights"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"stays_in_week_nights"</span><span class="p">]</span>
+
+<span class="n">rules</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"zero_guests"</span><span class="p">:</span> <span class="n">guests</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"zero_nights"</span><span class="p">:</span> <span class="n">nights</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"negative_adr"</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"adr_above_1000"</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mask</span> <span class="ow">in</span> <span class="n">rules</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;16</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">:</span><span class="s2">&gt;5,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">invalid</span> <span class="o">=</span> <span class="n">rules</span><span class="p">[</span><span class="s2">"zero_guests"</span><span class="p">]</span> <span class="o">|</span> <span class="n">rules</span><span class="p">[</span><span class="s2">"zero_nights"</span><span class="p">]</span> <span class="o">|</span> <span class="n">rules</span><span class="p">[</span><span class="s2">"negative_adr"</span><span class="p">]</span> <span class="o">|</span> <span class="n">rules</span><span class="p">[</span><span class="s2">"adr_above_1000"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Invalid records (at least one rule): </span><span class="si">{</span><span class="n">invalid</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Highest daily rates:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+</pre></div><div class="out"><pre class="o-text">zero_guests        166
+zero_nights        651
+negative_adr         1
+adr_above_1000       1
+
+Invalid records (at least one rule): 759
+
+Highest daily rates:
+38749    5400.0
+80728     510.0
+11661     508.0
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="o">~</span><span class="n">invalid</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">log_step</span><span class="p">(</span><span class="s2">"Remove invalid records"</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span>
+         <span class="s2">"0 guests, 0 nights, negative adr, or adr of 5,400 (data-entry error)."</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Remove invalid records: 87,396 → 86,637 rows (removed 759)
+</pre></div></div>
+<div class="cell md"><h3 id="s-4-missing-values">4. Missing values</h3>
+<p>Missing values after removing duplicates and invalid records. Each attribute gets its own treatment,
+chosen from what the missing value means rather than a single rule for all.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="n">missing_now</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="n">missing_now</span> <span class="o">=</span> <span class="n">missing_now</span><span class="p">[</span><span class="n">missing_now</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"missing"</span><span class="p">:</span> <span class="n">missing_now</span><span class="p">,</span> <span class="s2">"percent"</span><span class="p">:</span> <span class="p">(</span><span class="n">missing_now</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)})</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>missing</th>
+      <th>percent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>children</th>
+      <td>4</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>country</th>
+      <td>442</td>
+      <td>0.51</td>
+    </tr>
+    <tr>
+      <th>agent</th>
+      <td>11958</td>
+      <td>13.80</td>
+    </tr>
+    <tr>
+      <th>company</th>
+      <td>81467</td>
+      <td>94.03</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Treatment</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>children</code></td>
+<td>fill with 0, convert to integer</td>
+<td>only 4 rows; almost all bookings have 0 children</td>
+</tr>
+<tr>
+<td><code>country</code></td>
+<td>fill with "Unknown"</td>
+<td>we do not invent a nationality</td>
+</tr>
+<tr>
+<td><code>agent</code></td>
+<td>replace with flag <code>has_agent</code> (1/0), drop the ID</td>
+<td>empty = booked without a travel agent</td>
+</tr>
+<tr>
+<td><code>company</code></td>
+<td>replace with flag <code>has_company</code> (1/0), drop the ID</td>
+<td>empty = not paid by a company (94% empty)</td>
+</tr>
+</tbody>
+</table></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">df</span><span class="p">[</span><span class="s2">"children"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"children"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"country"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"country"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s2">"Unknown"</span><span class="p">)</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"has_agent"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"agent"</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"has_company"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"company"</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"agent"</span><span class="p">,</span> <span class="s2">"company"</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Missing values left:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Bookings via an agent:   </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'has_agent'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Bookings with a company: </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'has_company'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">log_step</span><span class="p">(</span><span class="s2">"Handle missing values"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span>
+         <span class="s2">"children→0, country→'Unknown', agent/company → has_agent/has_company flags."</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Missing values left: 0
+Bookings via an agent:   86.2%
+Bookings with a company: 6.0%
+Handle missing values: 86,637 → 86,637 rows (removed 0)
+</pre></div></div>
+<div class="cell md"><h3 id="s-5-inconsistent-categories">5. Inconsistent categories</h3>
+<p>Some categorical attributes contain an "Undefined" value. We check what it means in each attribute.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [13]</span><pre class="src"><span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"meal"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"distribution_channel"</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">()</span>
+</pre></div><div class="out"><pre class="o-text">--- meal ---
+meal
+BB           67417
+SC            9346
+HB            9030
+Undefined      485
+FB             359
+
+--- market_segment ---
+market_segment
+Online TA        51285
+Offline TA/TO    13748
+Direct           11652
+Groups            4891
+Corporate         4155
+Complementary      682
+Aviation           222
+Undefined            2
+
+--- distribution_channel ---
+distribution_channel
+TA/TO        68650
+Direct       12803
+Corporate     5001
+GDS            178
+Undefined        5
+
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [14]</span><pre class="src"><span class="n">df</span><span class="p">[</span><span class="s2">"meal"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"meal"</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"Undefined"</span><span class="p">,</span> <span class="s2">"SC"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"meal"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+
+<span class="n">log_step</span><span class="p">(</span><span class="s2">"Fix inconsistent categories"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span>
+         <span class="s2">"meal: 'Undefined' merged into 'SC' (both mean no meal package, per the dataset documentation)."</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">meal
+BB    67417
+SC     9831
+HB     9030
+FB      359
+Fix inconsistent categories: 86,637 → 86,637 rows (removed 0)
+</pre></div></div>
+<div class="cell md"><h3 id="s-6-feature-engineering">6. Feature engineering</h3>
+<p>New attributes derived from existing ones:</p>
+<table>
+<thead>
+<tr>
+<th>New attribute</th>
+<th>Formula</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>arrival_month_num</code></td>
+<td>month name → 1–12</td>
+<td>months as numbers can be sorted and used in models</td>
+</tr>
+<tr>
+<td><code>arrival_date</code></td>
+<td>year + month + day</td>
+<td>a real date for time analysis and the data warehouse</td>
+</tr>
+<tr>
+<td><code>total_nights</code></td>
+<td>weekend nights + week nights</td>
+<td>length of stay in one attribute</td>
+</tr>
+<tr>
+<td><code>total_guests</code></td>
+<td>adults + children + babies</td>
+<td>size of the booking</td>
+</tr>
+<tr>
+<td><code>season</code></td>
+<td>month → Winter / Spring / Summer / Autumn</td>
+<td>groups months into seasons</td>
+</tr>
+<tr>
+<td><code>is_family</code></td>
+<td>1 if children or babies &gt; 0</td>
+<td>families may behave differently</td>
+</tr>
+<tr>
+<td><code>room_changed</code></td>
+<td>1 if assigned room ≠ reserved room</td>
+<td>analysis only (known at check-in → leakage)</td>
+</tr>
+<tr>
+<td><code>booked_revenue</code></td>
+<td>adr × total_nights</td>
+<td>value of the booking</td>
+</tr>
+<tr>
+<td><code>realized_revenue</code></td>
+<td>booked_revenue if not canceled, else 0</td>
+<td>revenue actually earned (uses the outcome → not a model input)</td>
+</tr>
+</tbody>
+</table></div>
+<div class="cell code"><div class="in"><span class="prompt">In [15]</span><pre class="src"><span class="n">months</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"January"</span><span class="p">,</span> <span class="s2">"February"</span><span class="p">,</span> <span class="s2">"March"</span><span class="p">,</span> <span class="s2">"April"</span><span class="p">,</span> <span class="s2">"May"</span><span class="p">,</span> <span class="s2">"June"</span><span class="p">,</span>
+          <span class="s2">"July"</span><span class="p">,</span> <span class="s2">"August"</span><span class="p">,</span> <span class="s2">"September"</span><span class="p">,</span> <span class="s2">"October"</span><span class="p">,</span> <span class="s2">"November"</span><span class="p">,</span> <span class="s2">"December"</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"arrival_month_num"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"arrival_date_month"</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">({</span><span class="n">m</span><span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">months</span><span class="p">)})</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"arrival_date"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"arrival_date_year"</span><span class="p">],</span>
+                                         <span class="n">month</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"arrival_month_num"</span><span class="p">],</span>
+                                         <span class="n">day</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"arrival_date_day_of_month"</span><span class="p">]))</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"total_nights"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"stays_in_weekend_nights"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"stays_in_week_nights"</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adults"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"children"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"babies"</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">to_season</span><span class="p">(</span><span class="n">month</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">month</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">"Winter"</span>
+    <span class="k">if</span> <span class="n">month</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">"Spring"</span>
+    <span class="k">if</span> <span class="n">month</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">"Summer"</span>
+    <span class="k">return</span> <span class="s2">"Autumn"</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"season"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"arrival_month_num"</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">to_season</span><span class="p">)</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"is_family"</span><span class="p">]</span> <span class="o">=</span> <span class="p">((</span><span class="n">df</span><span class="p">[</span><span class="s2">"children"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"babies"</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"room_changed"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"reserved_room_type"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"assigned_room_type"</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="n">df</span><span class="p">[</span><span class="s2">"booked_revenue"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">*</span> <span class="n">df</span><span class="p">[</span><span class="s2">"total_nights"</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"realized_revenue"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s2">"booked_revenue"</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span>
+
+<span class="n">new_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arrival_month_num"</span><span class="p">,</span> <span class="s2">"arrival_date"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">,</span> <span class="s2">"season"</span><span class="p">,</span>
+            <span class="s2">"is_family"</span><span class="p">,</span> <span class="s2">"room_changed"</span><span class="p">,</span> <span class="s2">"booked_revenue"</span><span class="p">,</span> <span class="s2">"realized_revenue"</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="n">new_cols</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>arrival_month_num</th>
+      <th>arrival_date</th>
+      <th>total_nights</th>
+      <th>total_guests</th>
+      <th>season</th>
+      <th>is_family</th>
+      <th>room_changed</th>
+      <th>booked_revenue</th>
+      <th>realized_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>7</td>
+      <td>2015-07-01</td>
+      <td>1</td>
+      <td>1</td>
+      <td>Summer</td>
+      <td>0</td>
+      <td>1</td>
+      <td>75.0</td>
+      <td>75.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>7</td>
+      <td>2015-07-01</td>
+      <td>1</td>
+      <td>1</td>
+      <td>Summer</td>
+      <td>0</td>
+      <td>0</td>
+      <td>75.0</td>
+      <td>75.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>7</td>
+      <td>2015-07-01</td>
+      <td>2</td>
+      <td>2</td>
+      <td>Summer</td>
+      <td>0</td>
+      <td>0</td>
+      <td>196.0</td>
+      <td>196.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>7</td>
+      <td>2015-07-01</td>
+      <td>2</td>
+      <td>2</td>
+      <td>Summer</td>
+      <td>0</td>
+      <td>0</td>
+      <td>214.0</td>
+      <td>214.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>7</td>
+      <td>2015-07-01</td>
+      <td>2</td>
+      <td>2</td>
+      <td>Summer</td>
+      <td>0</td>
+      <td>0</td>
+      <td>206.0</td>
+      <td>206.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [16]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Average nights per booking: </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'total_nights'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Average guests per booking: </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'total_guests'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Family bookings:            </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'is_family'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Room changed at check-in:   </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="s1">'room_changed'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"season"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="n">booked</span><span class="p">,</span> <span class="n">realized</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"booked_revenue"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="s2">"realized_revenue"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Booked revenue:   €</span><span class="si">{</span><span class="n">booked</span><span class="si">:</span><span class="s2">,.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Realized revenue: €</span><span class="si">{</span><span class="n">realized</span><span class="si">:</span><span class="s2">,.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Lost to cancellations: €</span><span class="si">{</span><span class="n">booked</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">realized</span><span class="si">:</span><span class="s2">,.0f</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="p">(</span><span class="n">booked</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">realized</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">booked</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+<span class="n">log_step</span><span class="p">(</span><span class="s2">"Feature engineering"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="s2">"Added "</span> <span class="o">+</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_cols</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"."</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Average nights per booking: 3.65
+Average guests per booking: 2.03
+Family bookings:            10.5%
+Room changed at check-in:   14.6%
+
+season
+Summer    28903
+Spring    23604
+Autumn    18417
+Winter    15713
+
+Booked revenue:   €34,446,255
+Realized revenue: €22,967,612
+Lost to cancellations: €11,478,643 (33.3%)
+Feature engineering: 86,637 → 86,637 rows (removed 0)
+</pre></div></div>
+<div class="cell md"><h3 id="s-7-cleaning-log">7. Cleaning log</h3>
+<p>Every preprocessing step with the number of rows before and after.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [17]</span><pre class="src"><span class="n">log_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cleaning_log</span><span class="p">)</span>
+<span class="n">log_df</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>step</th>
+      <th>rows_before</th>
+      <th>rows_after</th>
+      <th>removed</th>
+      <th>note</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Remove exact duplicates</td>
+      <td>119390</td>
+      <td>87396</td>
+      <td>31994</td>
+      <td>No booking ID to tell copies apart; copies acr...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Remove invalid records</td>
+      <td>87396</td>
+      <td>86637</td>
+      <td>759</td>
+      <td>0 guests, 0 nights, negative adr, or adr of 5,...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Handle missing values</td>
+      <td>86637</td>
+      <td>86637</td>
+      <td>0</td>
+      <td>children→0, country→'Unknown', agent/company →...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Fix inconsistent categories</td>
+      <td>86637</td>
+      <td>86637</td>
+      <td>0</td>
+      <td>meal: 'Undefined' merged into 'SC' (both mean ...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Feature engineering</td>
+      <td>86637</td>
+      <td>86637</td>
+      <td>0</td>
+      <td>Added arrival_month_num, arrival_date, total_n...</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-8-final-checks">8. Final checks</h3>
+<p>Verify the cleaned dataset before saving: size, missing values, data types and duplicates.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [18]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="s2">"Shape:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Missing values:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Duplicate rows:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+
+<span class="k">assert</span> <span class="n">df</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"There are still missing values"</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">86637</span><span class="p">,</span> <span class="s2">"Unexpected number of rows"</span>
+</pre></div><div class="out"><pre class="o-text">Shape: (86637, 41)
+Missing values: 0
+Duplicate rows: 17
+
+int64             24
+object            13
+float64            3
+datetime64[ns]     1
+</pre></div></div>
+<div class="cell md"><p>The 17 "duplicate" rows are <strong>not</strong> real duplicates: they became identical only after replacing
+the agent and company IDs with the <code>has_agent</code> / <code>has_company</code> flags. In the original data they are
+different bookings (different agents or companies), so they are kept.</p></div>
+<div class="cell md"><h3 id="s-9-save-the-cleaned-dataset">9. Save the cleaned dataset</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [19]</span><pre class="src"><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_clean.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">log_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"../data/processed/cleaning_log.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Saved:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Saved: (86637, 41)
+</pre></div></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h2 id="s-summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Rows</th>
+<th>Columns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raw dataset</td>
+<td>119,390</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Cleaned dataset</td>
+<td><strong>86,637</strong></td>
+<td><strong>41</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>
+<p><strong>31,994 exact duplicates removed.</strong> 93% of "Non Refund" bookings were duplicates; removing them
+  changed the cancellation rate from 37.0% to 27.5%.</p>
+</li>
+<li>
+<p><strong>759 invalid records removed:</strong> 0 guests, 0 nights, a negative rate, and a rate of €5,400.</p>
+</li>
+<li><strong>No missing values left:</strong> children → 0, country → "Unknown", agent and company → <code>has_agent</code> / <code>has_company</code> flags.</li>
+<li><strong>Categories fixed:</strong> meal "Undefined" merged into "SC".</li>
+<li><strong>9 new attributes</strong>, including <code>booked_revenue</code>: cancellations cost the two hotels <strong>€11.5M (33.3%)</strong> of booked revenue.</li>
+</ul>
+<p><strong>Not done here on purpose:</strong> encoding, scaling, grouping rare countries and excluding leakage attributes
+(<code>reservation_status</code>, <code>reservation_status_date</code>, <code>room_changed</code>, <code>realized_revenue</code>) are done inside each model
+notebook, because each algorithm needs a different form and scaling must be learned from the training set only.</p>
+<p><strong>Next step:</strong> <code>03_data_warehouse.ipynb</code> — load the cleaned data into a star schema.</p></div>
+    <div class="pager"><a href="01.html"><small>← Previous notebook</small>01 · Data Understanding</a><a class="next" href="03.html"><small>Next notebook →</small>03 · Outlier Analysis</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 05 · Exploratory Data Analysis (EDA)</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 05</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 05</div>
+    <h1>Exploratory Data Analysis (EDA)</h1>
+    <div class="meta">
+      <span class="pill">12 explanation cells</span><span class="pill">8 code cells</span><span class="pill">7 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../eda.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-05-exploratory-data-analysis-eda" class="l1">05 · Exploratory Data Analysis (EDA)</a><a href="#s-1-setup" class="l3">1. Setup</a><a href="#s-2-distribution-of-the-main-numeric-attributes" class="l3">2. Distribution of the main numeric attributes</a><a href="#s-3-cancellation-rate-by-attribute" class="l3">3. Cancellation rate by attribute</a><a href="#s-4-seasonality" class="l3">4. Seasonality</a><a href="#s-5-price-distribution-by-hotel" class="l3">5. Price distribution by hotel</a><a href="#s-6-lead-time-vs-price" class="l3">6. Lead time vs. price</a><a href="#s-7-correlation-matrix" class="l3">7. Correlation matrix</a><a href="#s-figure-for-the-report-class-distribution-and-cancellation-rate-by-lead-time" class="l2">Figure for the report: class distribution and cancellation rate by lead time</a><a href="#s-summary-of-findings" class="l2">Summary of findings</a><a href="#s-implications-for-modelling" class="l3">Implications for modelling</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-05-exploratory-data-analysis-eda">05 · Exploratory Data Analysis (EDA)</h1>
+<p><strong>CIS 517 – Hotel Booking Cancellation Prediction Using Data Mining</strong></p>
+<p>Goal: explore the cleaned data visually before modelling. Each chart answers one question:
+how the main attributes are distributed, which attributes are related to cancellation,
+how prices change over the year, and which attributes are correlated.
+All charts are saved to <code>figures/</code> for the report and the website.</p></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h3 id="s-1-setup">1. Setup</h3>
+<p>One consistent chart style for the whole project, using the website colors (blue, cyan, green).</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">seaborn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sns</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_clean.csv"</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="p">[</span><span class="s2">"arrival_date"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Data:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span> <span class="o">=</span> <span class="s2">"#2563eb"</span><span class="p">,</span> <span class="s2">"#06b6d4"</span><span class="p">,</span> <span class="s2">"#10b981"</span><span class="p">,</span> <span class="s2">"#f97316"</span>
+<span class="n">sns</span><span class="o">.</span><span class="n">set_theme</span><span class="p">(</span><span class="n">style</span><span class="o">=</span><span class="s2">"whitegrid"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">"figure.figsize"</span><span class="p">:</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">),</span>
+    <span class="s2">"figure.dpi"</span><span class="p">:</span> <span class="mi">110</span><span class="p">,</span>
+    <span class="s2">"axes.spines.top"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">"axes.spines.right"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">"axes.titleweight"</span><span class="p">:</span> <span class="s2">"bold"</span><span class="p">,</span>
+    <span class="s2">"axes.titlesize"</span><span class="p">:</span> <span class="mi">13</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="n">FIG_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../figures"</span><span class="p">)</span>
+<span class="n">FIG_DIR</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.png"</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Data: (86637, 41)
+</pre></div></div>
+<div class="cell md"><h3 id="s-2-distribution-of-the-main-numeric-attributes">2. Distribution of the main numeric attributes</h3>
+<p><strong>Question:</strong> what do typical bookings look like (how far in advance, at what price, for how long)?
+The dashed line marks the median.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mf">4.2</span><span class="p">))</span>
+
+<span class="n">specs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"Lead time (days)"</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">640</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="n">BLUE</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"Daily rate, ADR (EUR)"</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">420</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">CYAN</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"Total nights"</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span> <span class="n">GREEN</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="n">color</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">specs</span><span class="p">):</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">histplot</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">bins</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+    <span class="n">median</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">median</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="se">\n</span><span class="s2">median = </span><span class="si">{</span><span class="n">median</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Bookings"</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_01_distributions"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_01.png" loading="lazy" alt="Figure 1 of notebook 05"></figure></div></div>
+<div class="cell md"><h3 id="s-3-cancellation-rate-by-attribute">3. Cancellation rate by attribute</h3>
+<p><strong>Question:</strong> which attributes are related to cancellation?
+Each bar is the share of canceled bookings in that group; the dashed line is the overall rate (27.7%).
+Large differences between groups suggest the attribute will be useful for classification.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="n">overall</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">cancel_rate_plot</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">rates</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">col</span><span class="p">)[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"mean"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">])</span>
+    <span class="n">rates</span> <span class="o">=</span> <span class="n">rates</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">order</span><span class="p">]</span> <span class="k">if</span> <span class="n">order</span> <span class="k">else</span> <span class="n">rates</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"mean"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">bars</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">rates</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span> <span class="n">rates</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">BLUE</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">overall</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">bar</span><span class="p">,</span> <span class="p">(</span><span class="n">rate</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">rates</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rate</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="se">\n</span><span class="s2">(n=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span> <span class="p">(</span><span class="n">bar</span><span class="o">.</span><span class="n">get_x</span><span class="p">()</span> <span class="o">+</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">rate</span><span class="p">),</span>
+                    <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Cancellation rate"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">rates</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.3</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">ticker</span><span class="o">.</span><span class="n">PercentFormatter</span><span class="p">(</span><span class="mf">1.0</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s2">"x"</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+
+<span class="n">plot_df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+    <span class="n">lead_group</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">cut</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"lead_time"</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">365</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+                      <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"0-7"</span><span class="p">,</span> <span class="s2">"8-30"</span><span class="p">,</span> <span class="s2">"31-90"</span><span class="p">,</span> <span class="s2">"91-180"</span><span class="p">,</span> <span class="s2">"181-365"</span><span class="p">,</span> <span class="s2">"365+"</span><span class="p">]),</span>
+    <span class="n">requests</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_of_special_requests"</span><span class="p">]</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">upper</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"3"</span><span class="p">,</span> <span class="s2">"3+"</span><span class="p">),</span>
+    <span class="n">previous_cancel</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"previous_cancellations"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"Yes"</span><span class="p">,</span> <span class="s2">"No"</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"lead_group"</span><span class="p">,</span> <span class="s2">"Lead time (days)"</span><span class="p">,</span>
+                 <span class="n">order</span><span class="o">=</span><span class="p">[</span><span class="s2">"0-7"</span><span class="p">,</span> <span class="s2">"8-30"</span><span class="p">,</span> <span class="s2">"31-90"</span><span class="p">,</span> <span class="s2">"91-180"</span><span class="p">,</span> <span class="s2">"181-365"</span><span class="p">,</span> <span class="s2">"365+"</span><span class="p">])</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"deposit_type"</span><span class="p">,</span> <span class="s2">"Deposit type"</span><span class="p">)</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"Market segment"</span><span class="p">)</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"requests"</span><span class="p">,</span> <span class="s2">"Special requests"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="p">[</span><span class="s2">"0"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="s2">"2"</span><span class="p">,</span> <span class="s2">"3+"</span><span class="p">])</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"Customer type"</span><span class="p">)</span>
+<span class="n">cancel_rate_plot</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">plot_df</span><span class="p">,</span> <span class="s2">"previous_cancel"</span><span class="p">,</span> <span class="s2">"Previous cancellations"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="p">[</span><span class="s2">"No"</span><span class="p">,</span> <span class="s2">"Yes"</span><span class="p">])</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Cancellation rate by attribute (dashed line = overall 27.7%)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_02_cancel_rate_by_attribute"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_02.png" loading="lazy" alt="Figure 2 of notebook 05"></figure></div></div>
+<div class="cell md"><h3 id="s-4-seasonality">4. Seasonality</h3>
+<p><strong>Question:</strong> how do the number of bookings, the price and the cancellation rate change over the year, and do the two hotels behave the same way?</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">monthly</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">"arrival_month_num"</span><span class="p">,</span> <span class="s2">"hotel"</span><span class="p">])</span>
+             <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">bookings</span><span class="o">=</span><span class="p">(</span><span class="s2">"is_canceled"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">),</span>
+                  <span class="n">adr</span><span class="o">=</span><span class="p">(</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
+                  <span class="n">cancel_rate</span><span class="o">=</span><span class="p">(</span><span class="s2">"is_canceled"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">))</span>
+             <span class="o">.</span><span class="n">reset_index</span><span class="p">())</span>
+
+<span class="n">month_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Jan"</span><span class="p">,</span> <span class="s2">"Feb"</span><span class="p">,</span> <span class="s2">"Mar"</span><span class="p">,</span> <span class="s2">"Apr"</span><span class="p">,</span> <span class="s2">"May"</span><span class="p">,</span> <span class="s2">"Jun"</span><span class="p">,</span> <span class="s2">"Jul"</span><span class="p">,</span> <span class="s2">"Aug"</span><span class="p">,</span> <span class="s2">"Sep"</span><span class="p">,</span> <span class="s2">"Oct"</span><span class="p">,</span> <span class="s2">"Nov"</span><span class="p">,</span> <span class="s2">"Dec"</span><span class="p">]</span>
+<span class="n">hotel_colors</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"City Hotel"</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span> <span class="s2">"Resort Hotel"</span><span class="p">:</span> <span class="n">GREEN</span><span class="p">}</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+<span class="n">panels</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">"bookings"</span><span class="p">,</span> <span class="s2">"Bookings per month"</span><span class="p">,</span> <span class="s2">"Bookings"</span><span class="p">),</span>
+          <span class="p">(</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"Average daily rate (EUR)"</span><span class="p">,</span> <span class="s2">"ADR (EUR)"</span><span class="p">),</span>
+          <span class="p">(</span><span class="s2">"cancel_rate"</span><span class="p">,</span> <span class="s2">"Cancellation rate"</span><span class="p">,</span> <span class="s2">"Cancellation rate"</span><span class="p">)]</span>
+
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">ylabel</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">panels</span><span class="p">):</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">lineplot</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">monthly</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="s2">"arrival_month_num"</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">col</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="s2">"hotel"</span><span class="p">,</span>
+                 <span class="n">palette</span><span class="o">=</span><span class="n">hotel_colors</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">ylabel</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">month_names</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">bottom</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">ticker</span><span class="o">.</span><span class="n">PercentFormatter</span><span class="p">(</span><span class="mf">1.0</span><span class="p">))</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_03_seasonality"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_03.png" loading="lazy" alt="Figure 3 of notebook 05"></figure></div></div>
+<div class="cell md"><h3 id="s-5-price-distribution-by-hotel">5. Price distribution by hotel</h3>
+<p><strong>Question:</strong> how do prices differ between the two hotels, and are there extreme values?</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [13]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+<span class="n">sns</span><span class="o">.</span><span class="n">boxplot</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">=</span><span class="s2">"adr"</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">"hotel"</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="s2">"hotel"</span><span class="p">,</span>
+            <span class="n">palette</span><span class="o">=</span><span class="n">hotel_colors</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
+            <span class="n">flierprops</span><span class="o">=</span><span class="p">{</span><span class="s2">"marker"</span><span class="p">:</span> <span class="s2">"o"</span><span class="p">,</span> <span class="s2">"markersize"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"alpha"</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">})</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Daily rate (ADR) by hotel, excluding complimentary bookings"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"ADR (EUR)"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_04_adr_boxplot"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"hotel"</span><span class="p">)[</span><span class="s2">"adr"</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_04.png" loading="lazy" alt="Figure 4 of notebook 05"></figure><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+    <tr>
+      <th>hotel</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>City Hotel</th>
+      <td>52320.0</td>
+      <td>113.2</td>
+      <td>39.5</td>
+      <td>0.5</td>
+      <td>85.0</td>
+      <td>106.2</td>
+      <td>135.0</td>
+      <td>510.0</td>
+    </tr>
+    <tr>
+      <th>Resort Hotel</th>
+      <td>33265.0</td>
+      <td>101.1</td>
+      <td>62.8</td>
+      <td>0.3</td>
+      <td>53.4</td>
+      <td>80.1</td>
+      <td>135.0</td>
+      <td>508.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-6-lead-time-vs-price">6. Lead time vs. price</h3>
+<p><strong>Question:</strong> can canceled and kept bookings be separated using just two attributes?
+A random sample of 3,000 bookings is plotted so that the points do not hide each other.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [14]</span><pre class="src"><span class="n">sample</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">3000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mf">5.5</span><span class="p">))</span>
+<span class="n">sns</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">sample</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">"adr"</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="s2">"is_canceled"</span><span class="p">,</span>
+                <span class="n">palette</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">ORANGE</span><span class="p">},</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Lead time vs. daily rate (sample of 3,000 bookings)"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Lead time (days)"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"ADR (EUR)"</span><span class="p">)</span>
+<span class="n">handles</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_legend_handles_labels</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="p">,</span> <span class="p">[</span><span class="s2">"Not canceled"</span><span class="p">,</span> <span class="s2">"Canceled"</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_05_scatter_lead_adr"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Correlation lead_time vs adr: </span><span class="si">{</span><span class="n">sample</span><span class="p">[</span><span class="s1">'lead_time'</span><span class="p">]</span><span class="o">.</span><span class="n">corr</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="s1">'adr'</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_05.png" loading="lazy" alt="Figure 5 of notebook 05"></figure><pre class="o-text">Correlation lead_time vs adr: 0.04
+</pre></div></div>
+<div class="cell md"><h3 id="s-7-correlation-matrix">7. Correlation matrix</h3>
+<p><strong>Question:</strong> which numeric attributes move together, and which are linearly related to cancellation?
+Pearson correlation ranges from −1 (opposite direction) to +1 (same direction); 0 means no linear relation.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [15]</span><pre class="src"><span class="n">corr_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">,</span> <span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">,</span>
+             <span class="s2">"total_of_special_requests"</span><span class="p">,</span> <span class="s2">"booking_changes"</span><span class="p">,</span> <span class="s2">"previous_cancellations"</span><span class="p">,</span>
+             <span class="s2">"previous_bookings_not_canceled"</span><span class="p">,</span> <span class="s2">"is_repeated_guest"</span><span class="p">,</span> <span class="s2">"days_in_waiting_list"</span><span class="p">,</span>
+             <span class="s2">"required_car_parking_spaces"</span><span class="p">,</span> <span class="s2">"arrival_month_num"</span><span class="p">,</span> <span class="s2">"has_agent"</span><span class="p">]</span>
+<span class="n">corr</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">corr_cols</span><span class="p">]</span><span class="o">.</span><span class="n">corr</span><span class="p">()</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+<span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">corr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">corr</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">annot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">".2f"</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu_r"</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">annot_kws</span><span class="o">=</span><span class="p">{</span><span class="s2">"size"</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span> <span class="n">cbar_kws</span><span class="o">=</span><span class="p">{</span><span class="s2">"shrink"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">},</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Correlation matrix of numeric attributes"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"eda_06_correlation_matrix"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">corr</span><span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">"is_canceled"</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">abs</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_06.png" loading="lazy" alt="Figure 6 of notebook 05"></figure><pre class="o-text">required_car_parking_spaces      -0.19
+lead_time                         0.18
+has_agent                         0.13
+adr                               0.13
+total_of_special_requests        -0.12
+total_guests                      0.10
+booking_changes                  -0.09
+is_repeated_guest                -0.08
+total_nights                      0.08
+previous_bookings_not_canceled   -0.05
+previous_cancellations            0.05
+arrival_month_num                 0.00
+days_in_waiting_list              0.00
+Name: is_canceled, dtype: float64</pre></div></div>
+<div class="cell md"><h2 id="s-figure-for-the-report-class-distribution-and-cancellation-rate-by-lead-time">Figure for the report: class distribution and cancellation rate by lead time</h2>
+<p>This figure uses the final dataset after the outlier analysis (notebook 02b).
+It shows that the classes are imbalanced (72.3% / 27.7%) and that the cancellation rate
+increases with lead time.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [16]</span><pre class="src"><span class="c1"># Figure for the report: class distribution and cancellation rate by lead time</span>
+<span class="n">df_final</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_final.csv"</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+
+<span class="n">counts</span> <span class="o">=</span> <span class="n">df_final</span><span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="s2">"Not canceled (0)"</span><span class="p">,</span> <span class="s2">"Canceled (1)"</span><span class="p">],</span> <span class="n">counts</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">BLUE</span><span class="p">,</span> <span class="n">ORANGE</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">counts</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="se">\n</span><span class="s2">(</span><span class="si">{</span><span class="n">v</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">df_final</span><span class="p">)</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">counts</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Class distribution of is_canceled"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Bookings"</span><span class="p">)</span>
+
+<span class="n">groups</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">cut</span><span class="p">(</span><span class="n">df_final</span><span class="p">[</span><span class="s2">"lead_time"</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">365</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+                <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"0-7"</span><span class="p">,</span> <span class="s2">"8-30"</span><span class="p">,</span> <span class="s2">"31-90"</span><span class="p">,</span> <span class="s2">"91-180"</span><span class="p">,</span> <span class="s2">"181-365"</span><span class="p">,</span> <span class="s2">"&gt;365"</span><span class="p">])</span>
+<span class="n">rate</span> <span class="o">=</span> <span class="n">df_final</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">rate</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span> <span class="n">rate</span><span class="o">.</span><span class="n">values</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">BLUE</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rate</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Cancellation rate by lead time"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Lead time (days)"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Canceled (%)"</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"stat_01_class_leadtime.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/05_07.png" loading="lazy" alt="Figure 7 of notebook 05"></figure></div></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h2 id="s-summary-of-findings">Summary of findings</h2>
+<p><strong>Typical booking</strong> (median): booked <strong>50 days</strong> ahead, <strong>€99</strong> per night, <strong>3 nights</strong>.
+Lead time is strongly right-skewed (mean 80 &gt; median 50); 1,052 bookings are complimentary (ADR = 0).</p>
+<p><strong>Attributes related to cancellation</strong> (overall rate 27.7%):</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Lowest group</th>
+<th>Highest group</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lead time</td>
+<td>0–7 days: 9%</td>
+<td>over 365 days: 41% (rises steadily)</td>
+</tr>
+<tr>
+<td>Market segment</td>
+<td>Corporate: 12%</td>
+<td>Online TA: 36%</td>
+</tr>
+<tr>
+<td>Special requests</td>
+<td>3 or more: 16%</td>
+<td>none: 33%</td>
+</tr>
+<tr>
+<td>Previous cancellations</td>
+<td>none: 27%</td>
+<td>at least one: 68% (1,677 bookings)</td>
+</tr>
+<tr>
+<td>Customer type</td>
+<td>Group: 10%</td>
+<td>Transient: 30%</td>
+</tr>
+<tr>
+<td>Deposit type</td>
+<td>No Deposit: 27%</td>
+<td>Non Refund: 95% (only 1,037 bookings; correlation, not causation)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Seasonality:</strong> prices at the Resort Hotel rise almost <strong>4×</strong> from January (€50) to August (€189), and its cancellation
+rate rises with them (14% → 33%). The City Hotel is more stable (€86–128, cancellation 25–35%).
+The effect of the month <strong>depends on the hotel</strong> (an interaction).</p>
+<p><strong>Prices:</strong> City Hotel median €106 with a narrow spread (IQR €49); Resort Hotel median €80 with a wide spread (IQR €83).
+Both have many high values beyond the IQR whiskers, to be analysed in Outlier Detection.</p>
+<p><strong>Relationships:</strong> canceled and kept bookings overlap heavily on lead time vs. price, so cancellation cannot be predicted
+from two attributes. Linear correlations with cancellation are all weak (|r| ≤ 0.19), and the strongest one
+(<code>required_car_parking_spaces</code>) is data leakage. No pair of attributes is highly correlated (all |r| &lt; 0.5).</p>
+<h3 id="s-implications-for-modelling">Implications for modelling</h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clear differences in cancellation rate across lead time, segment, requests, customer type</td>
+<td>Good candidate attributes for <strong>classification</strong></td>
+</tr>
+<tr>
+<td>Classes overlap; correlations weak</td>
+<td>Expect moderate accuracy; compare against the 72% baseline, not 100%</td>
+</tr>
+<tr>
+<td>Month effect differs by hotel</td>
+<td><strong>Decision Tree Regression</strong> should capture it better than Linear Regression</td>
+</tr>
+<tr>
+<td>Lead time and nights are skewed</td>
+<td>Use a log transform before distance-based methods (<strong>KNN, K-Means</strong>)</td>
+</tr>
+<tr>
+<td>Many high prices beyond the IQR whiskers</td>
+<td>Analyse with IQR, Z-Score and Isolation Forest in <strong>Outlier Detection</strong></td>
+</tr>
+<tr>
+<td>Parking and assigned room reveal the outcome</td>
+<td>Exclude from classification (<strong>leakage</strong>)</td>
+</tr>
+<tr>
+<td>No highly correlated pairs</td>
+<td>No attributes need to be dropped for multicollinearity</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Figures saved</strong> in <code>figures/</code>: <code>eda_01</code> – <code>eda_06</code>.</p>
+<p><strong>Next step:</strong> <code>05_classification.ipynb</code>.</p></div>
+    <div class="pager"><a href="04.html"><small>← Previous notebook</small>04 · Data Warehouse</a><a class="next" href="06.html"><small>Next notebook →</small>06 · Classification: Predicting Hotel Booking Cancellation</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

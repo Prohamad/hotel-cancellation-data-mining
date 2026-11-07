@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 08 · Numeric Prediction: Predicting the Room Price (ADR)</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 08</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 08</div>
+    <h1>Numeric Prediction: Predicting the Room Price (ADR)</h1>
+    <div class="meta">
+      <span class="pill">12 explanation cells</span><span class="pill">16 code cells</span><span class="pill">4 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../regression.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-07-numeric-prediction-predicting-the-room-price-adr" class="l1">07 — Numeric Prediction: Predicting the Room Price (ADR)</a><a href="#s-1-prepare-the-data" class="l2">1. Prepare the Data</a><a href="#s-2-simple-linear-regression" class="l2">2. Simple Linear Regression</a><a href="#s-3-multiple-linear-regression" class="l2">3. Multiple Linear Regression</a><a href="#s-3-1-regression-performance" class="l3">3.1 Regression Performance</a><a href="#s-3-2-cross-validation-for-r" class="l3">3.2 Cross-validation for R²</a><a href="#s-3-3-weights-of-the-months" class="l3">3.3 Weights of the Months</a><a href="#s-4-decision-tree-regression" class="l2">4. Decision Tree Regression</a><a href="#s-4-1-a-tree-without-limits-training-vs-test-error-rmse" class="l3">4.1 A tree without limits: training vs. test error (RMSE)</a><a href="#s-4-2-choosing-the-depth-with-cross-validation" class="l3">4.2 Choosing the depth with cross-validation</a><a href="#s-4-3-final-decision-tree-regressor" class="l3">4.3 Final Decision Tree Regressor</a><a href="#s-5-comparing-the-two-models" class="l2">5. Comparing the Two Models</a><a href="#s-6-summary" class="l2">6. Summary</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-07-numeric-prediction-predicting-the-room-price-adr">07 — Numeric Prediction: Predicting the Room Price (ADR)</h1>
+<p><strong>Numeric prediction</strong> models continuous-valued functions: it predicts an unknown numeric target for new data.</p>
+<p><strong>Target:</strong> <code>adr</code> — Average Daily Rate (€ per night)</p>
+<p>In this notebook:</p>
+<ul>
+<li>Simple linear regression (one feature)</li>
+<li>Multiple linear regression (all features)</li>
+<li>Regression performance: R², RMSE, MAE</li>
+<li>Cross-validation</li>
+<li>Decision tree regression and overfitting</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [1]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">KFold</span><span class="p">,</span> <span class="n">cross_val_score</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.tree</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecisionTreeRegressor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">mean_absolute_error</span>
+
+<span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span> <span class="o">=</span> <span class="s2">"#2563eb"</span><span class="p">,</span> <span class="s2">"#06b6d4"</span><span class="p">,</span> <span class="s2">"#10b981"</span><span class="p">,</span> <span class="s2">"#f97316"</span>
+<span class="n">FIG_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../figures"</span><span class="p">)</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_final.csv"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">(86620, 41)
+</pre></div></div>
+<div class="cell md"><h2 id="s-1-prepare-the-data">1. Prepare the Data</h2>
+<p>Bookings with <code>adr = 0</code> are free (complementary) rooms; their price is not set by the market, so they are removed.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [2]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="s2">"Bookings with adr = 0:"</span><span class="p">,</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+<span class="n">reg_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reg_df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">reg_df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Bookings with adr = 0: 1038
+(85582, 41)
+</pre><pre class="o-text">count    85582.0
+mean       108.5
+std         50.2
+min          0.3
+25%         74.5
+50%         99.0
+75%        135.0
+max        510.0
+Name: adr, dtype: float64</pre></div></div>
+<div class="cell md"><h2 id="s-2-simple-linear-regression">2. Simple Linear Regression</h2>
+<p>With one input feature, linear regression uses a straight-line equation:</p>
+<p>$$\hat{y} = b + wx$$</p>
+<ul>
+<li>$x$: input value · $\hat{y}$: predicted output</li>
+<li>$w$: slope — how much the prediction changes when the input increases by one unit</li>
+<li>$b$: intercept — the prediction when the input is zero</li>
+</ul>
+<p>The feature used is <code>total_guests</code>, the numeric attribute most related to <code>adr</code>.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [3]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="n">reg_df</span><span class="p">[[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">,</span> <span class="s2">"children"</span><span class="p">,</span> <span class="s2">"adults"</span><span class="p">,</span> <span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">]]</span><span class="o">.</span><span class="n">corr</span><span class="p">()[</span><span class="s2">"adr"</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">adr             1.000
+total_guests    0.472
+children        0.358
+adults          0.325
+lead_time       0.006
+total_nights    0.031
+Name: adr, dtype: float64
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [4]</span><pre class="src"><span class="c1"># Create X from the total_guests column and y from the adr column</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">reg_df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">reg_df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+<span class="c1"># Create and fit the model</span>
+<span class="n">reg</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span>
+<span class="n">reg</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="n">b</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">intercept_</span><span class="p">,</span> <span class="n">reg</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"b (intercept) = </span><span class="si">{</span><span class="n">b</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"w (slope)     = </span><span class="si">{</span><span class="n">w</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Prediction for 3 guests: </span><span class="si">{</span><span class="n">b</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> + </span><span class="si">{</span><span class="n">w</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> × 3 = </span><span class="si">{</span><span class="n">b</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">3</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> €"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">b (intercept) = 39.51
+w (slope)     = 33.95
+Prediction for 3 guests: 39.51 + 33.95 × 3 = 141.37 €
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [5]</span><pre class="src"><span class="n">sample</span> <span class="o">=</span> <span class="n">reg_df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">3000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">x_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">],</span> <span class="n">sample</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">BLUE</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_line</span><span class="p">,</span> <span class="n">reg</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_line</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Total guests"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"ADR (€ per night)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Simple linear regression: ADR vs. total guests"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"reg_01_simple_linear.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"R²:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/08_01.png" loading="lazy" alt="Figure 1 of notebook 08"></figure><pre class="o-text">R²: 0.223
+</pre></div></div>
+<div class="cell md"><h2 id="s-3-multiple-linear-regression">3. Multiple Linear Regression</h2>
+<p>With several input features, the model learns a <strong>weight for each feature</strong> and combines their contributions.</p>
+<p>During training, <strong>least squares</strong> chooses the weights that minimise the sum of squared differences between
+actual and predicted values:</p>
+<p>$$L(w, b) = \sum_{i=1}^{n} (y_i - \hat{y}_i)^2$$</p>
+<p>Only attributes known at booking time are used. <code>arrival_date_year</code> and <code>arrival_date_month</code> are treated as
+categories, because price changes with the season, not in a straight line with the month number.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">NUMERIC</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"adults"</span><span class="p">,</span> <span class="s2">"children"</span><span class="p">,</span> <span class="s2">"babies"</span><span class="p">,</span>
+           <span class="s2">"total_of_special_requests"</span><span class="p">,</span> <span class="s2">"is_repeated_guest"</span><span class="p">,</span> <span class="s2">"booking_changes"</span><span class="p">]</span>
+<span class="n">CATEGORICAL</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"hotel"</span><span class="p">,</span> <span class="s2">"arrival_date_year"</span><span class="p">,</span> <span class="s2">"arrival_date_month"</span><span class="p">,</span> <span class="s2">"meal"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span>
+               <span class="s2">"distribution_channel"</span><span class="p">,</span> <span class="s2">"reserved_room_type"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"deposit_type"</span><span class="p">]</span>
+
+<span class="c1"># Convert categorical variables to numeric using one-hot encoding</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">reg_df</span><span class="p">[</span><span class="n">NUMERIC</span> <span class="o">+</span> <span class="n">CATEGORICAL</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="n">CATEGORICAL</span><span class="p">,</span> <span class="n">drop_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">reg_df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">(85582, 49)
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">X_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="c1"># Instantiate and fit the model</span>
+<span class="n">lr_model</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span>
+<span class="n">lr_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+
+<span class="c1"># Make predictions</span>
+<span class="n">y_pred_lr</span> <span class="o">=</span> <span class="n">lr_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Predictions:"</span><span class="p">,</span> <span class="n">y_pred_lr</span><span class="p">[:</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Actual:     "</span><span class="p">,</span> <span class="n">y_test</span><span class="o">.</span><span class="n">values</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span>
+</pre></div><div class="out"><pre class="o-text">Predictions: [143.6 162.4 200.3  89.4  83.1]
+Actual:      [129.  221.  207.9  93.6  90.9]
+</pre></div></div>
+<div class="cell md"><h3 id="s-3-1-regression-performance">3.1 Regression Performance</h3>
+<ul>
+<li><strong>R²:</strong> how much of the variance in <code>adr</code> the features explain (1 = perfect)</li>
+<li><strong>RMSE:</strong> root mean squared error, in € per night</li>
+<li><strong>MAE:</strong> mean absolute error, in € per night</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">r2_lr</span> <span class="o">=</span> <span class="n">lr_model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+<span class="n">rmse_lr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred_lr</span><span class="p">))</span>
+<span class="n">mae_lr</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred_lr</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"R²:  "</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">r2_lr</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"RMSE:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">rmse_lr</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MAE: "</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">mae_lr</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">R²:   0.6386
+RMSE: 30.19
+MAE:  22.31
+</pre></div></div>
+<div class="cell md"><h3 id="s-3-2-cross-validation-for-r">3.2 Cross-validation for R²</h3>
+<p>10-fold cross-validation on the training set: each fold is used once for testing and the others for training.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">kf</span> <span class="o">=</span> <span class="n">KFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">cv_scores</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">LinearRegression</span><span class="p">(),</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">kf</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">cv_scores</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Mean:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">cv_scores</span><span class="p">),</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Standard deviation:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">cv_scores</span><span class="p">),</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"95</span><span class="si">% i</span><span class="s2">nterval:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">cv_scores</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.975</span><span class="p">])</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">[0.6506 0.6323 0.6369 0.6517 0.6488 0.6406 0.667  0.6448 0.6448 0.6343]
+Mean: 0.6452
+Standard deviation: 0.0097
+95% interval: [0.6327 0.6636]
+</pre></div></div>
+<div class="cell md"><h3 id="s-3-3-weights-of-the-months">3.3 Weights of the Months</h3>
+<p>Each weight shows how much the predicted price changes compared with the baseline month (<strong>April</strong>),
+when all other features stay the same.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">months</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"January"</span><span class="p">,</span> <span class="s2">"February"</span><span class="p">,</span> <span class="s2">"March"</span><span class="p">,</span> <span class="s2">"April"</span><span class="p">,</span> <span class="s2">"May"</span><span class="p">,</span> <span class="s2">"June"</span><span class="p">,</span> <span class="s2">"July"</span><span class="p">,</span>
+          <span class="s2">"August"</span><span class="p">,</span> <span class="s2">"September"</span><span class="p">,</span> <span class="s2">"October"</span><span class="p">,</span> <span class="s2">"November"</span><span class="p">,</span> <span class="s2">"December"</span><span class="p">]</span>
+
+<span class="n">weights</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">lr_model</span><span class="o">.</span><span class="n">coef_</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+<span class="n">month_w</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span><span class="n">m</span><span class="p">:</span> <span class="n">weights</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"arrival_date_month_</span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">months</span><span class="p">})</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">month_w</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">month_w</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">ORANGE</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">BLUE</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">month_w</span><span class="o">.</span><span class="n">values</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"grey"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Weight (€ vs. April)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Linear regression weights of the arrival month"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"reg_02_month_weights.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">month_w</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/08_02.png" loading="lazy" alt="Figure 2 of notebook 08"></figure><pre class="o-text">January     -30.5
+February    -28.1
+March       -19.3
+April         0.0
+May          11.8
+June         19.7
+July         35.6
+August       49.3
+September    29.7
+October       8.8
+November     -8.9
+December     -4.8
+dtype: float64</pre></div></div>
+<div class="cell md"><h2 id="s-4-decision-tree-regression">4. Decision Tree Regression</h2>
+<p>A regression tree splits the data like a classification tree, but each leaf predicts the <strong>average</strong> <code>adr</code>
+of its training records.</p>
+<h3 id="s-4-1-a-tree-without-limits-training-vs-test-error-rmse">4.1 A tree without limits: training vs. test error (RMSE)</h3>
+<ul>
+<li><strong>Underfitting:</strong> high error on both training and test sets</li>
+<li><strong>Overfitting:</strong> low training error, high test error</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="n">tree_full</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">tree_full</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Depth:"</span><span class="p">,</span> <span class="n">tree_full</span><span class="o">.</span><span class="n">get_depth</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Training RMSE:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span> <span class="n">tree_full</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_train</span><span class="p">))),</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Test RMSE:    "</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">tree_full</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">))),</span> <span class="mi">2</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Depth: 50
+Training RMSE: 4.11
+Test RMSE:     26.14
+</pre></div></div>
+<div class="cell md"><h3 id="s-4-2-choosing-the-depth-with-cross-validation">4.2 Choosing the depth with cross-validation</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">cv_rmse_depths</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="n">depth</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">kf</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"neg_mean_squared_error"</span><span class="p">)</span>
+    <span class="n">cv_rmse_depths</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="n">scores</span><span class="o">.</span><span class="n">mean</span><span class="p">())),</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">best_depth</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">cv_rmse_depths</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">cv_rmse_depths</span><span class="o">.</span><span class="n">get</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cv_rmse_depths</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Best depth:"</span><span class="p">,</span> <span class="n">best_depth</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">{2: 43.75, 4: 38.67, 6: 32.75, 8: 29.58, 10: 27.17, 12: 25.91, 14: 24.97, 16: 24.63, 18: 24.8, 20: 24.77, 22: 25.14, 24: 25.24}
+Best depth: 16
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [13]</span><pre class="src"><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cv_rmse_depths</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">cv_rmse_depths</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">ORANGE</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">best_depth</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"grey"</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"max_depth"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Cross-validation RMSE (€)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Decision tree regression: 10-fold cross-validation RMSE"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cv_rmse_depths</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"reg_03_tree_depth.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/08_03.png" loading="lazy" alt="Figure 3 of notebook 08"></figure></div></div>
+<div class="cell md"><h3 id="s-4-3-final-decision-tree-regressor">4.3 Final Decision Tree Regressor</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [14]</span><pre class="src"><span class="n">dtr_model</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="n">best_depth</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">dtr_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">y_pred_dtr</span> <span class="o">=</span> <span class="n">dtr_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+
+<span class="n">r2_dtr</span> <span class="o">=</span> <span class="n">dtr_model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+<span class="n">rmse_dtr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred_dtr</span><span class="p">))</span>
+<span class="n">mae_dtr</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred_dtr</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Training RMSE:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span> <span class="n">dtr_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_train</span><span class="p">))),</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Test RMSE:    "</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">rmse_dtr</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Training RMSE: 17.37
+Test RMSE:     24.93
+</pre></div></div>
+<div class="cell md"><h2 id="s-5-comparing-the-two-models">5. Comparing the Two Models</h2></div>
+<div class="cell code"><div class="in"><span class="prompt">In [15]</span><pre class="src"><span class="n">comparison</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"Linear Regression"</span><span class="p">:</span> <span class="p">[</span><span class="n">r2_lr</span><span class="p">,</span> <span class="n">rmse_lr</span><span class="p">,</span> <span class="n">mae_lr</span><span class="p">],</span>
+                           <span class="s2">"Decision Tree Regression"</span><span class="p">:</span> <span class="p">[</span><span class="n">r2_dtr</span><span class="p">,</span> <span class="n">rmse_dtr</span><span class="p">,</span> <span class="n">mae_dtr</span><span class="p">]},</span>
+                          <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">"R²"</span><span class="p">,</span> <span class="s2">"RMSE (€)"</span><span class="p">,</span> <span class="s2">"MAE (€)"</span><span class="p">])</span>
+<span class="n">comparison</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Linear Regression</th>
+      <th>Decision Tree Regression</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>R²</th>
+      <td>0.639</td>
+      <td>0.754</td>
+    </tr>
+    <tr>
+      <th>RMSE (€)</th>
+      <td>30.185</td>
+      <td>24.928</td>
+    </tr>
+    <tr>
+      <th>MAE (€)</th>
+      <td>22.308</td>
+      <td>15.830</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [16]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">pred</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">color</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y_pred_lr</span><span class="p">,</span> <span class="s2">"Linear Regression"</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">),</span>
+                              <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">y_pred_dtr</span><span class="p">,</span> <span class="s2">"Decision Tree Regression"</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">)]:</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">y_test</span><span class="p">[:</span><span class="mi">3000</span><span class="p">],</span> <span class="n">pred</span><span class="p">[:</span><span class="mi">3000</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">400</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">400</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Actual ADR (€)"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Predicted ADR (€)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"reg_04_actual_vs_predicted.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/08_04.png" loading="lazy" alt="Figure 4 of notebook 08"></figure></div></div>
+<div class="cell md"><h2 id="s-6-summary">6. Summary</h2>
+<p><strong>Question:</strong> How much of the room price (ADR) can be predicted from attributes known at booking time?</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Linear Regression</th>
+<th>Decision Tree Regression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setting</td>
+<td>all 49 features</td>
+<td>max_depth = 16 (10-fold cross-validation)</td>
+</tr>
+<tr>
+<td>R²</td>
+<td>0.639</td>
+<td><strong>0.754</strong></td>
+</tr>
+<tr>
+<td>RMSE</td>
+<td>€30.2</td>
+<td><strong>€24.9</strong></td>
+</tr>
+<tr>
+<td>MAE</td>
+<td>€22.3</td>
+<td><strong>€15.8</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Findings</strong></p>
+<ol>
+<li>With one feature, <code>total_guests</code> explains 22% of the variance (ŷ = 39.5 + 34.0 × guests): each extra guest adds about €34 per night.</li>
+<li>Multiple linear regression explains <strong>64%</strong> of the variance; 10-fold cross-validation gives the same result (0.645 ± 0.010), so the model is stable.</li>
+<li><strong>Seasonality:</strong> compared with April, August is about <strong>+€49</strong> per night and January about <strong>−€31</strong>, with all other features held the same.</li>
+<li>A decision tree without limits overfits (training RMSE €4.1, test RMSE €26.1). With max_depth = 16 it explains <strong>75.4%</strong> of the variance — better than linear regression, because price does not change in a straight line with the attributes.</li>
+</ol>
+<p><strong>Limitation:</strong> about a quarter of the variance remains unexplained; the exact room, daily demand and promotions are not in the data.</p></div>
+    <div class="pager"><a href="07.html"><small>← Previous notebook</small>07 · Cluster Analysis: Grouping Similar Bookings</a><span></span></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+jupyter
+# only needed to rebuild the website notebook pages (tools/build_notebooks.py)
+nbformat
+markdown
+pygments

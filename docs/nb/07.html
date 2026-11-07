@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 07 · Cluster Analysis: Grouping Similar Bookings</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 07</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 07</div>
+    <h1>Cluster Analysis: Grouping Similar Bookings</h1>
+    <div class="meta">
+      <span class="pill">11 explanation cells</span><span class="pill">12 code cells</span><span class="pill">3 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../clustering.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-06-cluster-analysis-grouping-similar-bookings" class="l1">06 — Cluster Analysis: Grouping Similar Bookings</a><a href="#s-1-attributes-for-clustering" class="l2">1. Attributes for Clustering</a><a href="#s-2-normalise-the-attributes" class="l2">2. Normalise the Attributes</a><a href="#s-3-k-means-clustering" class="l2">3. K-Means Clustering</a><a href="#s-3-1-determining-the-number-of-clusters" class="l3">3.1 Determining the Number of Clusters</a><a href="#s-3-2-final-k-means-model-k-4" class="l3">3.2 Final K-Means Model (k = 4)</a><a href="#s-3-3-describing-the-clusters" class="l3">3.3 Describing the Clusters</a><a href="#s-3-4-cluster-visualisation" class="l3">3.4 Cluster Visualisation</a><a href="#s-4-hierarchical-clustering-agglomerative-agnes" class="l2">4. Hierarchical Clustering: Agglomerative (AGNES)</a><a href="#s-5-summary" class="l2">5. Summary</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-06-cluster-analysis-grouping-similar-bookings">06 — Cluster Analysis: Grouping Similar Bookings</h1>
+<p>A <strong>cluster</strong> is a collection of data objects which are similar to one another within the same cluster
+and dissimilar to the objects in other clusters.</p>
+<p>Cluster analysis is <strong>unsupervised learning</strong>: there are no predefined classes.</p>
+<p>In this notebook:</p>
+<ul>
+<li><strong>Partitioning method:</strong> K-Means</li>
+<li><strong>Hierarchical method:</strong> Agglomerative clustering (AGNES) and the dendrogram</li>
+<li><strong>Evaluation:</strong> Elbow method and silhouette coefficient</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [1]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinMaxScaler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span><span class="p">,</span> <span class="n">AgglomerativeClustering</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">silhouette_score</span>
+
+<span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span> <span class="o">=</span> <span class="s2">"#2563eb"</span><span class="p">,</span> <span class="s2">"#06b6d4"</span><span class="p">,</span> <span class="s2">"#10b981"</span><span class="p">,</span> <span class="s2">"#f97316"</span>
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="n">BLUE</span><span class="p">,</span> <span class="n">ORANGE</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="s2">"#a855f7"</span><span class="p">]</span>
+<span class="n">FIG_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../figures"</span><span class="p">)</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"display.width"</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_final.csv"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">(86620, 41)
+</pre></div></div>
+<div class="cell md"><h2 id="s-1-attributes-for-clustering">1. Attributes for Clustering</h2>
+<p>K-Means divides <strong>numerical data</strong> into K clusters, so five numerical attributes that describe the booking are used.
+The class label <code>is_canceled</code> is <strong>not</strong> used to build the clusters; it is only used afterwards to describe them.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [2]</span><pre class="src"><span class="n">ATTRIBUTES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">,</span> <span class="s2">"total_of_special_requests"</span><span class="p">]</span>
+
+<span class="n">df</span><span class="p">[</span><span class="n">ATTRIBUTES</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adr</th>
+      <th>total_guests</th>
+      <th>total_of_special_requests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>86620.0</td>
+      <td>86620.0</td>
+      <td>86620.0</td>
+      <td>86620.0</td>
+      <td>86620.0</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>80.3</td>
+      <td>3.7</td>
+      <td>107.2</td>
+      <td>2.0</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>86.0</td>
+      <td>2.7</td>
+      <td>51.3</td>
+      <td>0.7</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>12.0</td>
+      <td>2.0</td>
+      <td>72.9</td>
+      <td>2.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>50.0</td>
+      <td>3.0</td>
+      <td>99.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>125.0</td>
+      <td>5.0</td>
+      <td>134.5</td>
+      <td>2.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>709.0</td>
+      <td>69.0</td>
+      <td>510.0</td>
+      <td>5.0</td>
+      <td>5.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h2 id="s-2-normalise-the-attributes">2. Normalise the Attributes</h2>
+<p>Clustering groups points by <strong>distance</strong> (e.g. Euclidean distance).
+Without normalisation, <code>lead_time</code> (0–709) would dominate <code>total_of_special_requests</code> (0–5).</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [3]</span><pre class="src"><span class="n">scaler</span> <span class="o">=</span> <span class="n">MinMaxScaler</span><span class="p">()</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">ATTRIBUTES</span><span class="p">])</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">ATTRIBUTES</span><span class="p">)</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adr</th>
+      <th>total_guests</th>
+      <th>total_of_special_requests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>86620.00</td>
+      <td>86620.00</td>
+      <td>86620.00</td>
+      <td>86620.00</td>
+      <td>86620.00</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>0.11</td>
+      <td>0.04</td>
+      <td>0.21</td>
+      <td>0.26</td>
+      <td>0.14</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>0.12</td>
+      <td>0.04</td>
+      <td>0.10</td>
+      <td>0.18</td>
+      <td>0.17</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>0.02</td>
+      <td>0.01</td>
+      <td>0.14</td>
+      <td>0.25</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>0.07</td>
+      <td>0.03</td>
+      <td>0.19</td>
+      <td>0.25</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>0.18</td>
+      <td>0.06</td>
+      <td>0.26</td>
+      <td>0.25</td>
+      <td>0.20</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>1.00</td>
+      <td>1.00</td>
+      <td>1.00</td>
+      <td>1.00</td>
+      <td>1.00</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h2 id="s-3-k-means-clustering">3. K-Means Clustering</h2>
+<p>K-Means represents each cluster by a <strong>centroid</strong> (the mean of its data points):</p>
+<ol>
+<li><strong>Initialise:</strong> choose K initial centroids</li>
+<li><strong>Assign:</strong> assign each data point to the cluster with the nearest centroid</li>
+<li><strong>Update:</strong> recalculate each centroid using the mean of the points assigned to its cluster</li>
+<li><strong>Repeat</strong> steps 2–3 until the clusters stop changing</li>
+</ol>
+<p><strong>Goal:</strong> minimise the Sum of Squared Errors</p>
+<p>$$SSE(C) = \sum_{k=1}^{K}\sum_{x_i \in C_k} \lVert x_i - c_k \rVert^2$$</p>
+<p>Different initial centroids can produce different results, so the initial centroids are chosen with <strong>K-Means++</strong>
+(the default in scikit-learn), and the algorithm is run 10 times (<code>n_init=10</code>), keeping the run with the lowest SSE.</p></div>
+<div class="cell md"><h3 id="s-3-1-determining-the-number-of-clusters">3.1 Determining the Number of Clusters</h3>
+<ul>
+<li><strong>Empirical method:</strong> $k \approx \sqrt{n/2}$</li>
+<li><strong>Elbow method:</strong> use the turning point in the curve of the within-cluster sum of squares (SSE) against the number of clusters</li>
+<li><strong>Silhouette coefficient:</strong> measures how compact and how well separated the clusters are (from −1 to 1, higher is better)</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [4]</span><pre class="src"><span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Empirical method: k ≈ sqrt(n/2) ="</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)))</span>
+</pre></div><div class="out"><pre class="o-text">Empirical method: k ≈ sqrt(n/2) = 208
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [5]</span><pre class="src"><span class="n">sse</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">silhouette</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">):</span>
+    <span class="n">km</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+    <span class="n">km</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">sse</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">km</span><span class="o">.</span><span class="n">inertia_</span>                                    <span class="c1"># SSE</span>
+    <span class="n">silhouette</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">km</span><span class="o">.</span><span class="n">labels_</span><span class="p">,</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"SSE"</span><span class="p">:</span> <span class="n">sse</span><span class="p">,</span> <span class="s2">"Silhouette"</span><span class="p">:</span> <span class="n">silhouette</span><span class="p">})</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>SSE</th>
+      <th>Silhouette</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>2</th>
+      <td>5382.785</td>
+      <td>0.258</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4092.278</td>
+      <td>0.300</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>3411.500</td>
+      <td>0.323</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2848.041</td>
+      <td>0.321</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2475.170</td>
+      <td>0.319</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2211.618</td>
+      <td>0.335</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2047.455</td>
+      <td>0.345</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>1897.175</td>
+      <td>0.350</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>1764.740</td>
+      <td>0.368</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">sse</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">sse</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">BLUE</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Elbow Method"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Number of clusters (k)"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Within-cluster sum of squares (SSE)"</span><span class="p">)</span>
+
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">silhouette</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">silhouette</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">ORANGE</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Silhouette Coefficient"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Number of clusters (k)"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Silhouette"</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"clu_01_elbow_silhouette.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/07_01.png" loading="lazy" alt="Figure 1 of notebook 07"></figure></div></div>
+<div class="cell md"><h3 id="s-3-2-final-k-means-model-k-4">3.2 Final K-Means Model (k = 4)</h3>
+<p>The empirical method gives about 208 clusters, which is too many to summarise the data.
+The SSE curve bends at <strong>k = 4</strong>: after 4, adding a cluster gives only a small reduction in SSE.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">kmeans</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span> <span class="o">=</span> <span class="n">kmeans</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"SSE:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">kmeans</span><span class="o">.</span><span class="n">inertia_</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Silhouette:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">],</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+</pre></div><div class="out"><pre class="o-text">SSE: 3411.5
+</pre><pre class="o-text">Silhouette: 0.323
+</pre><pre class="o-text">cluster
+0    10797
+1    14541
+2    13762
+3    47520
+Name: count, dtype: int64</pre></div></div>
+<div class="cell md"><h3 id="s-3-3-describing-the-clusters">3.3 Describing the Clusters</h3>
+<p>Each centroid is shown in the original units (mean of each attribute in the cluster),
+together with the cancellation rate of the cluster.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">profile</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"cluster"</span><span class="p">)[</span><span class="n">ATTRIBUTES</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">profile</span><span class="p">[</span><span class="s2">"bookings"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+<span class="n">profile</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adr</th>
+      <th>total_guests</th>
+      <th>total_of_special_requests</th>
+      <th>is_canceled</th>
+      <th>bookings</th>
+    </tr>
+    <tr>
+      <th>cluster</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>89.38</td>
+      <td>3.88</td>
+      <td>161.32</td>
+      <td>3.37</td>
+      <td>0.52</td>
+      <td>0.39</td>
+      <td>10797</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>47.95</td>
+      <td>2.69</td>
+      <td>78.78</td>
+      <td>1.00</td>
+      <td>0.26</td>
+      <td>0.19</td>
+      <td>14541</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>87.92</td>
+      <td>3.86</td>
+      <td>117.61</td>
+      <td>2.15</td>
+      <td>2.22</td>
+      <td>0.20</td>
+      <td>13762</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>85.84</td>
+      <td>3.84</td>
+      <td>100.59</td>
+      <td>2.00</td>
+      <td>0.44</td>
+      <td>0.30</td>
+      <td>47520</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-3-4-cluster-visualisation">3.4 Cluster Visualisation</h3>
+<p>The centroids (normalised values from 0 to 1) show which attributes separate the clusters.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">centers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">kmeans</span><span class="o">.</span><span class="n">cluster_centers_</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">ATTRIBUTES</span><span class="p">)</span>
+
+<span class="n">centers</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span><span class="p">,</span> <span class="s2">"#a855f7"</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"K-Means centroids (normalised values)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Cluster"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Normalised value (0-1)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">rotation</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">"upper right"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"clu_02_kmeans_centroids.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/07_02.png" loading="lazy" alt="Figure 2 of notebook 07"></figure></div></div>
+<div class="cell md"><h2 id="s-4-hierarchical-clustering-agglomerative-agnes">4. Hierarchical Clustering: Agglomerative (AGNES)</h2>
+<ul>
+<li>Start with singleton clusters and continuously <strong>merge the two closest clusters</strong> (bottom-up)</li>
+<li>The result is drawn as a <strong>dendrogram</strong>; cutting it at a level gives the clusters</li>
+<li>The distance between two clusters depends on the link:</li>
+<li><strong>Single link:</strong> the nearest members (sensitive to noise and outliers)</li>
+<li><strong>Complete link:</strong> the most dissimilar members (compact clusters)</li>
+<li><strong>Average link:</strong> the average distance over all pairs</li>
+</ul>
+<p>The time complexity is at least $O(n^2)$, so a random sample of 2,000 bookings is used.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X_sample</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"single"</span><span class="p">,</span> <span class="s2">"complete"</span><span class="p">,</span> <span class="s2">"average"</span><span class="p">]:</span>
+    <span class="n">agnes</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="n">link</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">agnes</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_sample</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">link</span><span class="si">:</span><span class="s2">9s</span><span class="si">}</span><span class="s2"> cluster sizes: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2"> | silhouette: </span><span class="si">{</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span><span class="w"> </span><span class="n">labels</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">single    cluster sizes: [1997    1    1    1] | silhouette: 0.399
+complete  cluster sizes: [ 339 1169  191  301] | silhouette: 0.128
+</pre><pre class="o-text">average   cluster sizes: [1995    3    1    1] | silhouette: 0.322
+</pre></div></div>
+<div class="cell md"><p><strong>Single</strong> and <strong>average</strong> link put almost all bookings in one cluster and isolate a few unusual bookings
+as clusters of size 1 — they are sensitive to outliers. Their high silhouette is therefore misleading.
+<strong>Complete link</strong> produces more useful groups, so it is used for the dendrogram.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">linkage</span><span class="p">,</span> <span class="n">dendrogram</span>
+
+<span class="n">Z</span> <span class="o">=</span> <span class="n">linkage</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"complete"</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">dendrogram</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">truncate_mode</span><span class="o">=</span><span class="s2">"lastp"</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">color_threshold</span><span class="o">=</span><span class="n">Z</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">Z</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s2">"grey"</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Cut: 4 clusters"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Dendrogram — Agglomerative clustering (complete link, 2,000 bookings)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Bookings (number of bookings in each branch)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Distance"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"clu_03_dendrogram.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div><div class="out"><figure class="o-img"><img src="img/07_03.png" loading="lazy" alt="Figure 3 of notebook 07"></figure></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">agnes</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="s2">"complete"</span><span class="p">)</span>
+<span class="n">agnes_labels</span> <span class="o">=</span> <span class="n">agnes</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_sample</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Silhouette on the same 2,000 bookings:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  K-Means:               "</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  Agglomerative (complete):"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">agnes_labels</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Silhouette on the same 2,000 bookings:
+  K-Means:                0.32
+  Agglomerative (complete): 0.128
+</pre></div></div>
+<div class="cell md"><h2 id="s-5-summary">5. Summary</h2>
+<p><strong>Question:</strong> What groups of similar bookings exist, and do they differ in cancellation?</p>
+<table>
+<thead>
+<tr>
+<th>Cluster</th>
+<th>Bookings</th>
+<th>Description</th>
+<th>Cancellation rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>10,797</td>
+<td><strong>families / groups</strong> (≈3.4 guests), highest price (≈€161)</td>
+<td><strong>39%</strong></td>
+</tr>
+<tr>
+<td>1</td>
+<td>14,541</td>
+<td><strong>single guests</strong>, lowest price (≈€79), shortest lead time</td>
+<td><strong>19%</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>13,762</td>
+<td><strong>2 or more special requests</strong></td>
+<td>20%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>47,520</td>
+<td>typical couples (2 guests, ≈€101), few requests</td>
+<td>30%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Findings</strong></p>
+<ol>
+<li>K-Means (k = 4, chosen with the elbow method) separates bookings mainly by <strong>number of guests</strong>, <strong>price</strong> and <strong>special requests</strong>.</li>
+<li>Large, expensive bookings (cluster 0) are canceled most often (39%); single guests and guests with special requests are canceled least (19–20%).</li>
+<li>Special requests are linked to fewer cancellations here and in the classification models (notebook 05), found here <strong>without using the class label</strong>.</li>
+<li>Agglomerative clustering with <strong>single</strong> or <strong>average</strong> link isolates a few unusual bookings (sensitive to outliers); <strong>complete</strong> link gives four usable groups but a much lower silhouette (0.128) than K-Means (0.320) on the same sample.</li>
+</ol>
+<p><strong>Limitation:</strong> the silhouette coefficient is about 0.32, so the clusters are only moderately separated.</p></div>
+    <div class="pager"><a href="06.html"><small>← Previous notebook</small>06 · Classification: Predicting Hotel Booking Cancellation</a><a class="next" href="08.html"><small>Next notebook →</small>08 · Numeric Prediction: Predicting the Room Price (ADR)</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

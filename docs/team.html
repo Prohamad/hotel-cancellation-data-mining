@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The people behind the project · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794057421">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / Team</div>
+    <div class="eyebrow" style="margin-top:14px">Team</div>
+    <h1>The people behind the project</h1>
+    <p class="lead">CIS 517 · Data Mining and Warehousing · College of Computer Science and Information Technology, Imam Abdulrahman Bin Faisal University.</p>
+    <div class="meta"><span class="pill ">CIS 517</span><span class="pill ">2026–2027</span></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#members">Members</a><a href="#instructor">Instructor</a><a href="#course">Course</a></aside>
+  <main class="content">
+
+    <section id="members">
+      <h2>Members</h2>
+      <div class="people" id="people"></div>
+    </section>
+    <section id="instructor">
+      <h2>Instructor</h2>
+      <div class="inkcard person-ink"><div class="avatar">TA</div><div><h3>Dr. Tariq Alkhaldi</h3><p>Course instructor · CIS 517 Data Mining and Warehousing</p><a class="li" href="https://www.linkedin.com/in/%E2%80%8Ftareq-alkhaldi-44864aba/" target="_blank" rel="noopener">LinkedIn ↗</a></div></div>
+    </section>
+    <section id="course">
+      <h2>Course</h2>
+      <p>The project applies the full data mining workflow from the course — problem, purpose, data understanding, preprocessing, visualisation,
+        data mining, evaluation and findings — to the Hotel Booking Demand dataset.</p>
+    </section>
+    
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+const TEAM = [
+  ["Hamad Alsultan", "https://www.linkedin.com/in/hamad-alsultan-5b53b8319"],
+  ["Rakan Alotaibi", "https://www.linkedin.com/in/rakan-alotaibi-605626383/"],
+  ["Abdullah Alomran", "https://www.linkedin.com/in/iabdullahalomran/"],
+  ["Mohammed Sufran", ""],
+  ["Yazn Bashraheel", ""],
+  ["Abdulellah Alghamdi", ""],
+];
+document.getElementById("people").innerHTML = TEAM.map(([n, url]) =>
+  `<div class="card person rv"><div class="avatar">${n.split(" ").map(w => w[0]).join("")}</div><h3>${n}</h3>${url ? `<a class="li" href="${url}" target="_blank" rel="noopener">LinkedIn ↗</a>` : ""}</div>`).join("");
+initReveal();
+</script>
+</body>
+</html>

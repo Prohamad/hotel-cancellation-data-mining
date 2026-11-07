@@ -1,0 +1,6 @@
+step,rows_before,rows_after,removed,note
+Remove exact duplicates,119390,87396,31994,No booking ID to tell copies apart; copies across train/test sets would inflate scores.
+Remove invalid records,87396,86637,759,"0 guests, 0 nights, negative adr, or adr of 5,400 (data-entry error)."
+Handle missing values,86637,86637,0,"children→0, country→'Unknown', agent/company → has_agent/has_company flags."
+Fix inconsistent categories,86637,86637,0,"meal: 'Undefined' merged into 'SC' (both mean no meal package, per the dataset documentation)."
+Feature engineering,86637,86637,0,"Added arrival_month_num, arrival_date, total_nights, total_guests, season, is_family, room_changed, booked_revenue, realized_revenue."

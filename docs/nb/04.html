@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notebook 04 · Data Warehouse</title>
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="../assets/css/notebook.css?v=1794044526">
+</head>
+<body class="nb-page">
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Home</a> / <a href="../notebooks.html">Notebooks</a> / 04</div>
+    <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 04</div>
+    <h1>Data Warehouse</h1>
+    <div class="meta">
+      <span class="pill">21 explanation cells</span><span class="pill">17 code cells</span><span class="pill">0 figures</span>
+      <span class="nb-tools">
+        <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
+        <a class="nb-link" href="../warehouse.html">View the stage page →</a>
+      </span>
+    </div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-03-data-warehouse" class="l1">03 · Data Warehouse</a><a href="#s-1-dimensional-model-design" class="l3">1. Dimensional model (design)</a><a href="#s-2-setup" class="l3">2. Setup</a><a href="#s-3-etl-extract-staging-table" class="l3">3. ETL – Extract: staging table</a><a href="#s-4-etl-transform-amp-load-dimension-tables" class="l3">4. ETL – Transform &amp;amp; Load: dimension tables</a><a href="#s-5-etl-load-fact-table" class="l3">5. ETL – Load: fact table</a><a href="#s-6-etl-validation" class="l3">6. ETL validation</a><a href="#s-7-analytical-sql" class="l3">7. Analytical SQL</a><a href="#s-8-olap-operations" class="l3">8. OLAP operations</a><a href="#s-9-finish-the-warehouse" class="l3">9. Finish the warehouse</a><a href="#s-summary" class="l2">Summary</a></aside>
+  <main class="content nb">
+<div class="cell md"><h1 id="s-03-data-warehouse">03 · Data Warehouse</h1>
+<p><strong>CIS 517 – Hotel Booking Cancellation Prediction Using Data Mining</strong></p>
+<p>Goal: load the cleaned bookings into a <strong>star schema</strong> (one fact table + six dimension tables),
+then answer business questions with analytical SQL and OLAP operations (roll-up, drill-down, slice, dice, pivot, ranking).
+The warehouse is built in <strong>SQLite</strong>, which is included with Python.</p></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h3 id="s-1-dimensional-model-design">1. Dimensional model (design)</h3>
+<p><strong>Grain:</strong> one row in the fact table = one booking (86,637 rows).</p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Type</th>
+<th>Columns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Fact_Booking</code></td>
+<td>Fact</td>
+<td>keys to all six dimensions + measures: lead_time, total_nights, adults, children, babies, adr, booked_revenue, realized_revenue, is_canceled, booking_changes, total_of_special_requests</td>
+</tr>
+<tr>
+<td><code>Dim_Date</code></td>
+<td>Dimension</td>
+<td>date_key (YYYYMMDD), full_date, year, quarter, month, month_name, week_number, day_of_month, day_name, season, is_weekend</td>
+</tr>
+<tr>
+<td><code>Dim_Hotel</code></td>
+<td>Dimension</td>
+<td>hotel_key, hotel_name</td>
+</tr>
+<tr>
+<td><code>Dim_Customer</code></td>
+<td>Dimension</td>
+<td>customer_key, customer_type, is_repeated_guest, country</td>
+</tr>
+<tr>
+<td><code>Dim_Channel</code></td>
+<td>Dimension</td>
+<td>channel_key, market_segment, distribution_channel</td>
+</tr>
+<tr>
+<td><code>Dim_Room</code></td>
+<td>Dimension</td>
+<td>room_key, reserved_room_type, assigned_room_type</td>
+</tr>
+<tr>
+<td><code>Dim_Policy</code></td>
+<td>Junk dimension</td>
+<td>policy_key, deposit_type, meal</td>
+</tr>
+</tbody>
+</table>
+<p>Dimensions use <strong>surrogate keys</strong> (1, 2, 3, …); <code>Dim_Date</code> uses the date itself as an integer key.</p></div>
+<div class="cell md"><h3 id="s-2-setup">2. Setup</h3>
+<p>Load the cleaned dataset and create an empty SQLite database file in <code>warehouse/</code>.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [36]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">sqlite3</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"../data/processed/hotel_bookings_clean.csv"</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="p">[</span><span class="s2">"arrival_date"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Cleaned data:"</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="n">db_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../warehouse/hotel_dw.sqlite"</span><span class="p">)</span>
+<span class="n">db_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">con</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Database created:"</span><span class="p">,</span> <span class="n">db_path</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Cleaned data: (86637, 41)
+Database created: ../warehouse/hotel_dw.sqlite
+</pre></div></div>
+<div class="cell md"><h3 id="s-3-etl-extract-staging-table">3. ETL – Extract: staging table</h3>
+<p>The cleaned bookings are copied into the database as a staging table, <code>Bookings_Source</code>.
+All warehouse tables are then built from it with SQL, as in the course lab.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [37]</span><pre class="src"><span class="n">df</span><span class="o">.</span><span class="n">to_sql</span><span class="p">(</span><span class="s2">"Bookings_Source"</span><span class="p">,</span> <span class="n">con</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT COUNT(*) AS rows FROM Bookings_Source"</span><span class="p">,</span> <span class="n">con</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">    rows
+0  86637
+</pre></div></div>
+<div class="cell md"><h3 id="s-4-etl-transform-amp-load-dimension-tables">4. ETL – Transform &amp; Load: dimension tables</h3>
+<p>Each dimension stores the <strong>distinct</strong> combinations of its attributes, and each row gets a surrogate key.
+<code>INTEGER PRIMARY KEY</code> in SQLite numbers the rows automatically (1, 2, 3, …), like <code>IDENTITY</code> in SQL Server.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [38]</span><pre class="src"><span class="n">dimensions_sql</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">CREATE TABLE Dim_Date (</span>
+<span class="s2">    date_key      INTEGER PRIMARY KEY,</span>
+<span class="s2">    full_date     TEXT,</span>
+<span class="s2">    year          INTEGER,</span>
+<span class="s2">    quarter       INTEGER,</span>
+<span class="s2">    month         INTEGER,</span>
+<span class="s2">    month_name    TEXT,</span>
+<span class="s2">    week_number   INTEGER,</span>
+<span class="s2">    day_of_month  INTEGER,</span>
+<span class="s2">    day_name      TEXT,</span>
+<span class="s2">    season        TEXT,</span>
+<span class="s2">    is_weekend    INTEGER</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Date</span>
+<span class="s2">SELECT DISTINCT</span>
+<span class="s2">    CAST(strftime('%Y%m</span><span class="si">%d</span><span class="s2">', arrival_date) AS INTEGER),</span>
+<span class="s2">    date(arrival_date),</span>
+<span class="s2">    arrival_date_year,</span>
+<span class="s2">    (arrival_month_num - 1) / 3 + 1,</span>
+<span class="s2">    arrival_month_num,</span>
+<span class="s2">    arrival_date_month,</span>
+<span class="s2">    arrival_date_week_number,</span>
+<span class="s2">    arrival_date_day_of_month,</span>
+<span class="s2">    CASE strftime('%w', arrival_date)</span>
+<span class="s2">        WHEN '0' THEN 'Sunday'    WHEN '1' THEN 'Monday'  WHEN '2' THEN 'Tuesday'</span>
+<span class="s2">        WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday'</span>
+<span class="s2">        ELSE 'Saturday' END,</span>
+<span class="s2">    season,</span>
+<span class="s2">    CASE WHEN strftime('%w', arrival_date) IN ('0', '6') THEN 1 ELSE 0 END</span>
+<span class="s2">FROM Bookings_Source</span>
+<span class="s2">ORDER BY 1;</span>
+
+<span class="s2">CREATE TABLE Dim_Hotel (</span>
+<span class="s2">    hotel_key  INTEGER PRIMARY KEY,</span>
+<span class="s2">    hotel_name TEXT NOT NULL</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Hotel (hotel_name)</span>
+<span class="s2">SELECT DISTINCT hotel FROM Bookings_Source ORDER BY hotel;</span>
+
+<span class="s2">CREATE TABLE Dim_Customer (</span>
+<span class="s2">    customer_key      INTEGER PRIMARY KEY,</span>
+<span class="s2">    customer_type     TEXT,</span>
+<span class="s2">    is_repeated_guest INTEGER,</span>
+<span class="s2">    country           TEXT</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Customer (customer_type, is_repeated_guest, country)</span>
+<span class="s2">SELECT DISTINCT customer_type, is_repeated_guest, country FROM Bookings_Source</span>
+<span class="s2">ORDER BY customer_type, is_repeated_guest, country;</span>
+
+<span class="s2">CREATE TABLE Dim_Channel (</span>
+<span class="s2">    channel_key          INTEGER PRIMARY KEY,</span>
+<span class="s2">    market_segment       TEXT,</span>
+<span class="s2">    distribution_channel TEXT</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Channel (market_segment, distribution_channel)</span>
+<span class="s2">SELECT DISTINCT market_segment, distribution_channel FROM Bookings_Source</span>
+<span class="s2">ORDER BY market_segment, distribution_channel;</span>
+
+<span class="s2">CREATE TABLE Dim_Room (</span>
+<span class="s2">    room_key           INTEGER PRIMARY KEY,</span>
+<span class="s2">    reserved_room_type TEXT,</span>
+<span class="s2">    assigned_room_type TEXT</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Room (reserved_room_type, assigned_room_type)</span>
+<span class="s2">SELECT DISTINCT reserved_room_type, assigned_room_type FROM Bookings_Source</span>
+<span class="s2">ORDER BY reserved_room_type, assigned_room_type;</span>
+
+<span class="s2">CREATE TABLE Dim_Policy (</span>
+<span class="s2">    policy_key   INTEGER PRIMARY KEY,</span>
+<span class="s2">    deposit_type TEXT,</span>
+<span class="s2">    meal         TEXT</span>
+<span class="s2">);</span>
+<span class="s2">INSERT INTO Dim_Policy (deposit_type, meal)</span>
+<span class="s2">SELECT DISTINCT deposit_type, meal FROM Bookings_Source</span>
+<span class="s2">ORDER BY deposit_type, meal;</span>
+<span class="s2">"""</span>
+
+<span class="n">con</span><span class="o">.</span><span class="n">executescript</span><span class="p">(</span><span class="n">dimensions_sql</span><span class="p">)</span>
+<span class="n">con</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [39]</span><pre class="src"><span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"Dim_Date"</span><span class="p">,</span> <span class="s2">"Dim_Hotel"</span><span class="p">,</span> <span class="s2">"Dim_Customer"</span><span class="p">,</span> <span class="s2">"Dim_Channel"</span><span class="p">,</span> <span class="s2">"Dim_Room"</span><span class="p">,</span> <span class="s2">"Dim_Policy"</span><span class="p">]:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SELECT COUNT(*) AS n FROM </span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"n"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">table</span><span class="si">:</span><span class="s2">&lt;14</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">&gt;4</span><span class="si">}</span><span class="s2"> rows"</span><span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT * FROM Dim_Date LIMIT 5"</span><span class="p">,</span> <span class="n">con</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Dim_Date        793 rows
+Dim_Hotel         2 rows
+Dim_Customer    442 rows
+Dim_Channel      26 rows
+Dim_Room         73 rows
+Dim_Policy       11 rows
+</pre><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>date_key</th>
+      <th>full_date</th>
+      <th>year</th>
+      <th>quarter</th>
+      <th>month</th>
+      <th>month_name</th>
+      <th>week_number</th>
+      <th>day_of_month</th>
+      <th>day_name</th>
+      <th>season</th>
+      <th>is_weekend</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>20150701</td>
+      <td>2015-07-01</td>
+      <td>2015</td>
+      <td>3</td>
+      <td>7</td>
+      <td>July</td>
+      <td>27</td>
+      <td>1</td>
+      <td>Wednesday</td>
+      <td>Summer</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>20150702</td>
+      <td>2015-07-02</td>
+      <td>2015</td>
+      <td>3</td>
+      <td>7</td>
+      <td>July</td>
+      <td>27</td>
+      <td>2</td>
+      <td>Thursday</td>
+      <td>Summer</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>20150703</td>
+      <td>2015-07-03</td>
+      <td>2015</td>
+      <td>3</td>
+      <td>7</td>
+      <td>July</td>
+      <td>27</td>
+      <td>3</td>
+      <td>Friday</td>
+      <td>Summer</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>20150704</td>
+      <td>2015-07-04</td>
+      <td>2015</td>
+      <td>3</td>
+      <td>7</td>
+      <td>July</td>
+      <td>27</td>
+      <td>4</td>
+      <td>Saturday</td>
+      <td>Summer</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>20150705</td>
+      <td>2015-07-05</td>
+      <td>2015</td>
+      <td>3</td>
+      <td>7</td>
+      <td>July</td>
+      <td>28</td>
+      <td>5</td>
+      <td>Sunday</td>
+      <td>Summer</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-5-etl-load-fact-table">5. ETL – Load: fact table</h3>
+<p>For every booking in the staging table we look up the surrogate key of each dimension with a JOIN,
+and store the keys together with the measures. The revenue measures are calculated during loading,
+like <code>Sales_Amount = Quantity × Unit_Price</code> in the lab:</p>
+<ul>
+<li><code>booked_revenue = adr × total_nights</code></li>
+<li><code>realized_revenue = booked_revenue</code> if the booking was not canceled, otherwise 0</li>
+</ul></div>
+<div class="cell code"><div class="in"><span class="prompt">In [40]</span><pre class="src"><span class="n">fact_sql</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">CREATE TABLE Fact_Booking (</span>
+<span class="s2">    booking_key               INTEGER PRIMARY KEY,</span>
+<span class="s2">    date_key                  INTEGER NOT NULL REFERENCES Dim_Date(date_key),</span>
+<span class="s2">    hotel_key                 INTEGER NOT NULL REFERENCES Dim_Hotel(hotel_key),</span>
+<span class="s2">    customer_key              INTEGER NOT NULL REFERENCES Dim_Customer(customer_key),</span>
+<span class="s2">    channel_key               INTEGER NOT NULL REFERENCES Dim_Channel(channel_key),</span>
+<span class="s2">    room_key                  INTEGER NOT NULL REFERENCES Dim_Room(room_key),</span>
+<span class="s2">    policy_key                INTEGER NOT NULL REFERENCES Dim_Policy(policy_key),</span>
+<span class="s2">    lead_time                 INTEGER,</span>
+<span class="s2">    total_nights              INTEGER,</span>
+<span class="s2">    adults                    INTEGER,</span>
+<span class="s2">    children                  INTEGER,</span>
+<span class="s2">    babies                    INTEGER,</span>
+<span class="s2">    adr                       REAL,</span>
+<span class="s2">    booked_revenue            REAL,</span>
+<span class="s2">    realized_revenue          REAL,</span>
+<span class="s2">    is_canceled               INTEGER,</span>
+<span class="s2">    booking_changes           INTEGER,</span>
+<span class="s2">    total_of_special_requests INTEGER</span>
+<span class="s2">);</span>
+
+<span class="s2">INSERT INTO Fact_Booking (</span>
+<span class="s2">    date_key, hotel_key, customer_key, channel_key, room_key, policy_key,</span>
+<span class="s2">    lead_time, total_nights, adults, children, babies, adr,</span>
+<span class="s2">    booked_revenue, realized_revenue, is_canceled, booking_changes, total_of_special_requests</span>
+<span class="s2">)</span>
+<span class="s2">SELECT</span>
+<span class="s2">    CAST(strftime('%Y%m</span><span class="si">%d</span><span class="s2">', s.arrival_date) AS INTEGER),</span>
+<span class="s2">    h.hotel_key, cu.customer_key, ch.channel_key, r.room_key, p.policy_key,</span>
+<span class="s2">    s.lead_time, s.total_nights, s.adults, s.children, s.babies, s.adr,</span>
+<span class="s2">    s.adr * s.total_nights,</span>
+<span class="s2">    CASE WHEN s.is_canceled = 0 THEN s.adr * s.total_nights ELSE 0 END,</span>
+<span class="s2">    s.is_canceled, s.booking_changes, s.total_of_special_requests</span>
+<span class="s2">FROM Bookings_Source s</span>
+<span class="s2">JOIN Dim_Hotel    h  ON h.hotel_name = s.hotel</span>
+<span class="s2">JOIN Dim_Customer cu ON cu.customer_type = s.customer_type</span>
+<span class="s2">                    AND cu.is_repeated_guest = s.is_repeated_guest</span>
+<span class="s2">                    AND cu.country = s.country</span>
+<span class="s2">JOIN Dim_Channel  ch ON ch.market_segment = s.market_segment</span>
+<span class="s2">                    AND ch.distribution_channel = s.distribution_channel</span>
+<span class="s2">JOIN Dim_Room     r  ON r.reserved_room_type = s.reserved_room_type</span>
+<span class="s2">                    AND r.assigned_room_type = s.assigned_room_type</span>
+<span class="s2">JOIN Dim_Policy   p  ON p.deposit_type = s.deposit_type</span>
+<span class="s2">                    AND p.meal = s.meal;</span>
+<span class="s2">"""</span>
+
+<span class="n">con</span><span class="o">.</span><span class="n">executescript</span><span class="p">(</span><span class="n">fact_sql</span><span class="p">)</span>
+<span class="n">con</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT * FROM Fact_Booking LIMIT 5"</span><span class="p">,</span> <span class="n">con</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>booking_key</th>
+      <th>date_key</th>
+      <th>hotel_key</th>
+      <th>customer_key</th>
+      <th>channel_key</th>
+      <th>room_key</th>
+      <th>policy_key</th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adults</th>
+      <th>children</th>
+      <th>babies</th>
+      <th>adr</th>
+      <th>booked_revenue</th>
+      <th>realized_revenue</th>
+      <th>is_canceled</th>
+      <th>booking_changes</th>
+      <th>total_of_special_requests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>20150701</td>
+      <td>2</td>
+      <td>165</td>
+      <td>10</td>
+      <td>3</td>
+      <td>1</td>
+      <td>7</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>75.0</td>
+      <td>75.0</td>
+      <td>75.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>20150701</td>
+      <td>2</td>
+      <td>165</td>
+      <td>6</td>
+      <td>1</td>
+      <td>1</td>
+      <td>13</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>75.0</td>
+      <td>75.0</td>
+      <td>75.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>20150701</td>
+      <td>2</td>
+      <td>165</td>
+      <td>24</td>
+      <td>1</td>
+      <td>1</td>
+      <td>14</td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>98.0</td>
+      <td>196.0</td>
+      <td>196.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>20150701</td>
+      <td>2</td>
+      <td>238</td>
+      <td>10</td>
+      <td>19</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>107.0</td>
+      <td>214.0</td>
+      <td>214.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>20150701</td>
+      <td>2</td>
+      <td>238</td>
+      <td>10</td>
+      <td>19</td>
+      <td>2</td>
+      <td>9</td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>103.0</td>
+      <td>206.0</td>
+      <td>206.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-6-etl-validation">6. ETL validation</h3>
+<p>Three checks that the fact table was loaded correctly:</p>
+<ol>
+<li>It has the same number of rows as the source (an INNER JOIN silently drops rows with no match).</li>
+<li>Its total revenue equals the source total.</li>
+<li>Every foreign key points to an existing dimension row (no orphan keys).</li>
+</ol></div>
+<div class="cell code"><div class="in"><span class="prompt">In [41]</span><pre class="src"><span class="n">source_rows</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT COUNT(*) AS n FROM Bookings_Source"</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"n"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">fact_rows</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT COUNT(*) AS n FROM Fact_Booking"</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"n"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">source_rev</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT SUM(booked_revenue) AS r FROM Bookings_Source"</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"r"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">fact_rev</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"SELECT SUM(booked_revenue) AS r FROM Fact_Booking"</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"r"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">orphans</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">    SELECT COUNT(*) AS n</span>
+<span class="s2">    FROM Fact_Booking f</span>
+<span class="s2">    LEFT JOIN Dim_Date d ON f.date_key = d.date_key</span>
+<span class="s2">    WHERE d.date_key IS NULL</span>
+<span class="s2">"""</span><span class="p">,</span> <span class="n">con</span><span class="p">)[</span><span class="s2">"n"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Rows:    source </span><span class="si">{</span><span class="n">source_rows</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> | fact </span><span class="si">{</span><span class="n">fact_rows</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Revenue: source €</span><span class="si">{</span><span class="n">source_rev</span><span class="si">:</span><span class="s2">,.2f</span><span class="si">}</span><span class="s2"> | fact €</span><span class="si">{</span><span class="n">fact_rev</span><span class="si">:</span><span class="s2">,.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Orphan date keys: </span><span class="si">{</span><span class="n">orphans</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">source_rows</span> <span class="o">==</span> <span class="n">fact_rows</span><span class="p">,</span> <span class="s2">"Rows were lost in the JOINs"</span>
+<span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">source_rev</span> <span class="o">-</span> <span class="n">fact_rev</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"Revenue does not match"</span>
+<span class="k">assert</span> <span class="n">orphans</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"Some date keys have no matching row in Dim_Date"</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">All ETL checks passed ✓"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Rows:    source 86,637 | fact 86,637
+Revenue: source €34,446,254.93 | fact €34,446,254.93
+Orphan date keys: 0
+
+All ETL checks passed ✓
+</pre></div></div>
+<div class="cell md"><h3 id="s-7-analytical-sql">7. Analytical SQL</h3>
+<p>Business questions answered by joining the fact table with its dimensions.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [42]</span><pre class="src"><span class="k">def</span><span class="w"> </span><span class="nf">q</span><span class="p">(</span><span class="n">sql</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="n">con</span><span class="p">)</span>
+</pre></div></div>
+<div class="cell md"><h4 id="s-q1-overall-totals">Q1. Overall totals</h4>
+<p>How many bookings were canceled, and how much booked revenue was lost?</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [43]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT COUNT(*)                                        AS bookings,</span>
+<span class="s2">       SUM(is_canceled)                                AS canceled,</span>
+<span class="s2">       ROUND(AVG(is_canceled) * 100, 1)                AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(SUM(booked_revenue))                      AS booked_revenue,</span>
+<span class="s2">       ROUND(SUM(realized_revenue))                    AS realized_revenue,</span>
+<span class="s2">       ROUND(SUM(booked_revenue) - SUM(realized_revenue)) AS lost_revenue</span>
+<span class="s2">FROM Fact_Booking</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>bookings</th>
+      <th>canceled</th>
+      <th>cancel_rate_pct</th>
+      <th>booked_revenue</th>
+      <th>realized_revenue</th>
+      <th>lost_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>86637</td>
+      <td>23985</td>
+      <td>27.7</td>
+      <td>34446255.0</td>
+      <td>22967612.0</td>
+      <td>11478643.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-q2-performance-by-hotel">Q2. Performance by hotel</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [44]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT h.hotel_name,</span>
+<span class="s2">       COUNT(*)                                             AS bookings,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1)                   AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(SUM(f.booked_revenue))                         AS booked_revenue,</span>
+<span class="s2">       ROUND(SUM(f.realized_revenue))                       AS realized_revenue,</span>
+<span class="s2">       ROUND(SUM(f.booked_revenue) - SUM(f.realized_revenue)) AS lost_revenue</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Hotel h ON f.hotel_key = h.hotel_key</span>
+<span class="s2">GROUP BY h.hotel_name</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>hotel_name</th>
+      <th>bookings</th>
+      <th>cancel_rate_pct</th>
+      <th>booked_revenue</th>
+      <th>realized_revenue</th>
+      <th>lost_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>City Hotel</td>
+      <td>53042</td>
+      <td>30.2</td>
+      <td>18759633.0</td>
+      <td>12150578.0</td>
+      <td>6609056.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Resort Hotel</td>
+      <td>33595</td>
+      <td>23.7</td>
+      <td>15686622.0</td>
+      <td>10817034.0</td>
+      <td>4869587.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-q3-where-is-revenue-lost-by-market-segment">Q3. Where is revenue lost? (by market segment)</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [45]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT c.market_segment,</span>
+<span class="s2">       COUNT(*)                                         AS bookings,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1)               AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(SUM(f.booked_revenue - f.realized_revenue)) AS lost_revenue,</span>
+<span class="s2">       ROUND(100.0 * SUM(f.booked_revenue - f.realized_revenue)</span>
+<span class="s2">             / (SELECT SUM(booked_revenue - realized_revenue) FROM Fact_Booking), 1) AS share_of_lost_pct</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Channel c ON f.channel_key = c.channel_key</span>
+<span class="s2">GROUP BY c.market_segment</span>
+<span class="s2">ORDER BY lost_revenue DESC</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>market_segment</th>
+      <th>bookings</th>
+      <th>cancel_rate_pct</th>
+      <th>lost_revenue</th>
+      <th>share_of_lost_pct</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Online TA</td>
+      <td>51285</td>
+      <td>35.5</td>
+      <td>9292902.0</td>
+      <td>81.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Direct</td>
+      <td>11652</td>
+      <td>14.9</td>
+      <td>929714.0</td>
+      <td>8.1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Offline TA/TO</td>
+      <td>13748</td>
+      <td>14.9</td>
+      <td>815609.0</td>
+      <td>7.1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Groups</td>
+      <td>4891</td>
+      <td>27.2</td>
+      <td>315620.0</td>
+      <td>2.7</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Corporate</td>
+      <td>4155</td>
+      <td>12.2</td>
+      <td>110415.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>Aviation</td>
+      <td>222</td>
+      <td>19.8</td>
+      <td>14065.0</td>
+      <td>0.1</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>Complementary</td>
+      <td>682</td>
+      <td>12.2</td>
+      <td>270.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>Undefined</td>
+      <td>2</td>
+      <td>100.0</td>
+      <td>48.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-8-olap-operations">8. OLAP operations</h3>
+<p>The fact table and its dimensions form a cube (Date × Hotel × Customer × Channel × Room × Policy).
+Each operation looks at the cube from a different level or angle.</p>
+<h4 id="s-roll-up-realized-revenue-from-quarter-up-to-year">Roll-up: realized revenue from quarter up to year</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [46]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT d.year,</span>
+<span class="s2">       COUNT(*)                           AS bookings,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1) AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(SUM(f.realized_revenue))     AS realized_revenue</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Date d ON f.date_key = d.date_key</span>
+<span class="s2">GROUP BY d.year</span>
+<span class="s2">ORDER BY d.year</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>year</th>
+      <th>bookings</th>
+      <th>cancel_rate_pct</th>
+      <th>realized_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2015</td>
+      <td>13142</td>
+      <td>20.6</td>
+      <td>3763871.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2016</td>
+      <td>41966</td>
+      <td>26.6</td>
+      <td>10381359.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2017</td>
+      <td>31529</td>
+      <td>32.0</td>
+      <td>8822381.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-drill-down-from-year-down-to-quarter">Drill-down: from year down to quarter</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [47]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT d.year, d.quarter,</span>
+<span class="s2">       COUNT(*)                       AS bookings,</span>
+<span class="s2">       ROUND(SUM(f.realized_revenue)) AS realized_revenue</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Date d ON f.date_key = d.date_key</span>
+<span class="s2">GROUP BY d.year, d.quarter</span>
+<span class="s2">ORDER BY d.year, d.quarter</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>year</th>
+      <th>quarter</th>
+      <th>bookings</th>
+      <th>realized_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2015</td>
+      <td>3</td>
+      <td>6903</td>
+      <td>2579783.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2015</td>
+      <td>4</td>
+      <td>6239</td>
+      <td>1184088.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2016</td>
+      <td>1</td>
+      <td>8386</td>
+      <td>1363178.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2016</td>
+      <td>2</td>
+      <td>10967</td>
+      <td>2652685.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2016</td>
+      <td>3</td>
+      <td>12049</td>
+      <td>4261920.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2016</td>
+      <td>4</td>
+      <td>10564</td>
+      <td>2103576.0</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2017</td>
+      <td>1</td>
+      <td>9720</td>
+      <td>1781779.0</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2017</td>
+      <td>2</td>
+      <td>12920</td>
+      <td>3507328.0</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2017</td>
+      <td>3</td>
+      <td>8889</td>
+      <td>3533275.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-slice-hotel-resort-hotel-by-season">Slice: Hotel = Resort Hotel, by season</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [48]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT d.season,</span>
+<span class="s2">       COUNT(*)                           AS bookings,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1) AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(AVG(f.adr), 2)               AS avg_adr,</span>
+<span class="s2">       ROUND(SUM(f.realized_revenue))     AS realized_revenue</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Date d  ON f.date_key = d.date_key</span>
+<span class="s2">JOIN Dim_Hotel h ON f.hotel_key = h.hotel_key</span>
+<span class="s2">WHERE h.hotel_name = 'Resort Hotel'</span>
+<span class="s2">GROUP BY d.season</span>
+<span class="s2">ORDER BY CASE d.season WHEN 'Winter' THEN 1 WHEN 'Spring' THEN 2 WHEN 'Summer' THEN 3 ELSE 4 END</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>season</th>
+      <th>bookings</th>
+      <th>cancel_rate_pct</th>
+      <th>avg_adr</th>
+      <th>realized_revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Winter</td>
+      <td>6465</td>
+      <td>17.1</td>
+      <td>57.19</td>
+      <td>932258.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Spring</td>
+      <td>8342</td>
+      <td>21.8</td>
+      <td>73.62</td>
+      <td>1848416.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Summer</td>
+      <td>11642</td>
+      <td>31.3</td>
+      <td>159.66</td>
+      <td>6276023.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Autumn</td>
+      <td>7146</td>
+      <td>19.5</td>
+      <td>72.91</td>
+      <td>1760337.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-dice-city-hotel-online-ta-summer-by-customer-type">Dice: City Hotel × Online TA × Summer, by customer type</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [49]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT cu.customer_type,</span>
+<span class="s2">       COUNT(*)                           AS bookings,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1) AS cancel_rate_pct,</span>
+<span class="s2">       ROUND(AVG(f.lead_time))            AS avg_lead_time</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Date d      ON f.date_key = d.date_key</span>
+<span class="s2">JOIN Dim_Hotel h     ON f.hotel_key = h.hotel_key</span>
+<span class="s2">JOIN Dim_Channel c   ON f.channel_key = c.channel_key</span>
+<span class="s2">JOIN Dim_Customer cu ON f.customer_key = cu.customer_key</span>
+<span class="s2">WHERE h.hotel_name = 'City Hotel'</span>
+<span class="s2">  AND c.market_segment = 'Online TA'</span>
+<span class="s2">  AND d.season = 'Summer'</span>
+<span class="s2">GROUP BY cu.customer_type</span>
+<span class="s2">ORDER BY bookings DESC</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>customer_type</th>
+      <th>bookings</th>
+      <th>cancel_rate_pct</th>
+      <th>avg_lead_time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Transient</td>
+      <td>11092</td>
+      <td>38.9</td>
+      <td>103.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Transient-Party</td>
+      <td>661</td>
+      <td>13.3</td>
+      <td>147.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Contract</td>
+      <td>266</td>
+      <td>17.3</td>
+      <td>48.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Group</td>
+      <td>14</td>
+      <td>0.0</td>
+      <td>58.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-pivot-cancellation-rate-of-each-market-segment-city-vs-resort">Pivot: cancellation rate (%) of each market segment, City vs Resort</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [50]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT c.market_segment,</span>
+<span class="s2">       ROUND(AVG(CASE WHEN h.hotel_name = 'City Hotel'   THEN f.is_canceled END) * 100, 1) AS city_hotel,</span>
+<span class="s2">       ROUND(AVG(CASE WHEN h.hotel_name = 'Resort Hotel' THEN f.is_canceled END) * 100, 1) AS resort_hotel,</span>
+<span class="s2">       COUNT(*) AS bookings</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Hotel h   ON f.hotel_key = h.hotel_key</span>
+<span class="s2">JOIN Dim_Channel c ON f.channel_key = c.channel_key</span>
+<span class="s2">GROUP BY c.market_segment</span>
+<span class="s2">HAVING COUNT(*) &gt; 100</span>
+<span class="s2">ORDER BY bookings DESC</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>market_segment</th>
+      <th>city_hotel</th>
+      <th>resort_hotel</th>
+      <th>bookings</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Online TA</td>
+      <td>36.2</td>
+      <td>34.2</td>
+      <td>51285</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Offline TA/TO</td>
+      <td>17.5</td>
+      <td>12.2</td>
+      <td>13748</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Direct</td>
+      <td>16.6</td>
+      <td>13.4</td>
+      <td>11652</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Groups</td>
+      <td>33.9</td>
+      <td>19.5</td>
+      <td>4891</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Corporate</td>
+      <td>11.9</td>
+      <td>12.6</td>
+      <td>4155</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>Complementary</td>
+      <td>10.5</td>
+      <td>16.4</td>
+      <td>682</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>Aviation</td>
+      <td>19.8</td>
+      <td>NaN</td>
+      <td>222</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h4 id="s-ranking-top-10-guest-countries-by-realized-revenue">Ranking: top 10 guest countries by realized revenue</h4></div>
+<div class="cell code"><div class="in"><span class="prompt">In [51]</span><pre class="src"><span class="n">q</span><span class="p">(</span><span class="s2">"""</span>
+<span class="s2">SELECT RANK() OVER (ORDER BY SUM(f.realized_revenue) DESC) AS revenue_rank,</span>
+<span class="s2">       cu.country,</span>
+<span class="s2">       COUNT(*)                           AS bookings,</span>
+<span class="s2">       ROUND(SUM(f.realized_revenue))     AS realized_revenue,</span>
+<span class="s2">       ROUND(AVG(f.is_canceled) * 100, 1) AS cancel_rate_pct</span>
+<span class="s2">FROM Fact_Booking f</span>
+<span class="s2">JOIN Dim_Customer cu ON f.customer_key = cu.customer_key</span>
+<span class="s2">GROUP BY cu.country</span>
+<span class="s2">ORDER BY realized_revenue DESC</span>
+<span class="s2">LIMIT 10</span>
+<span class="s2">"""</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>revenue_rank</th>
+      <th>country</th>
+      <th>bookings</th>
+      <th>realized_revenue</th>
+      <th>cancel_rate_pct</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>PRT</td>
+      <td>26863</td>
+      <td>4849333.0</td>
+      <td>36.4</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>GBR</td>
+      <td>10400</td>
+      <td>3724897.0</td>
+      <td>19.1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>FRA</td>
+      <td>8813</td>
+      <td>2736943.0</td>
+      <td>19.6</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>ESP</td>
+      <td>7228</td>
+      <td>2019863.0</td>
+      <td>25.7</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>DEU</td>
+      <td>5385</td>
+      <td>1622815.0</td>
+      <td>19.6</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>6</td>
+      <td>IRL</td>
+      <td>3014</td>
+      <td>1173331.0</td>
+      <td>22.2</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>7</td>
+      <td>ITA</td>
+      <td>3056</td>
+      <td>741903.0</td>
+      <td>35.1</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>8</td>
+      <td>BEL</td>
+      <td>2078</td>
+      <td>691522.0</td>
+      <td>19.7</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>9</td>
+      <td>NLD</td>
+      <td>1908</td>
+      <td>579345.0</td>
+      <td>18.3</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>10</td>
+      <td>CHE</td>
+      <td>1564</td>
+      <td>504590.0</td>
+      <td>24.6</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h3 id="s-9-finish-the-warehouse">9. Finish the warehouse</h3>
+<p>The staging table was only needed during ETL, so it is removed. The final warehouse contains the star schema only.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [52]</span><pre class="src"><span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"DROP TABLE Bookings_Source"</span><span class="p">)</span>
+<span class="n">con</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+<span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"VACUUM"</span><span class="p">)</span>
+
+<span class="n">tables</span> <span class="o">=</span> <span class="n">q</span><span class="p">(</span><span class="s2">"SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">tables</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">q</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SELECT COUNT(*) AS n FROM </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)[</span><span class="s2">"n"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;14</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">&gt;6,</span><span class="si">}</span><span class="s2"> rows"</span><span class="p">)</span>
+
+<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Warehouse saved: </span><span class="si">{</span><span class="n">db_path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">db_path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> MB)"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">Dim_Channel        26 rows
+Dim_Customer      442 rows
+Dim_Date          793 rows
+Dim_Hotel           2 rows
+Dim_Policy         11 rows
+Dim_Room           73 rows
+Fact_Booking   86,637 rows
+
+Warehouse saved: ../warehouse/hotel_dw.sqlite (4.3 MB)
+</pre></div></div>
+<div class="cell md"><p>ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ</p></div>
+<div class="cell md"><h2 id="s-summary">Summary</h2>
+<p><strong>Star schema</strong> (<code>warehouse/hotel_dw.sqlite</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Rows</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Fact_Booking</code></td>
+<td>86,637</td>
+<td>one row per booking: 6 foreign keys + 11 measures</td>
+</tr>
+<tr>
+<td><code>Dim_Date</code></td>
+<td>793</td>
+<td>arrival date, with year → quarter → month → day hierarchy</td>
+</tr>
+<tr>
+<td><code>Dim_Customer</code></td>
+<td>442</td>
+<td>customer type, repeated guest, country</td>
+</tr>
+<tr>
+<td><code>Dim_Room</code></td>
+<td>73</td>
+<td>reserved and assigned room type</td>
+</tr>
+<tr>
+<td><code>Dim_Channel</code></td>
+<td>26</td>
+<td>market segment and distribution channel</td>
+</tr>
+<tr>
+<td><code>Dim_Policy</code></td>
+<td>11</td>
+<td>deposit type and meal (junk dimension)</td>
+</tr>
+<tr>
+<td><code>Dim_Hotel</code></td>
+<td>2</td>
+<td>City Hotel, Resort Hotel</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ETL checks passed:</strong> same number of rows as the source, identical total revenue, no orphan keys.</p>
+<p><strong>Key findings:</strong></p>
+<ul>
+<li>Cancellations cost the two hotels <strong>€11.5M, 33.3% of booked revenue</strong>.</li>
+<li>
+<p><strong>Online travel agencies account for 81% of the lost revenue</strong>: they are the largest channel (59% of bookings)
+  and cancel at 35.5%, more than twice the rate of direct bookings (14.9%).</p>
+</li>
+<li>
+<p>City Hotel cancels more than Resort Hotel (30.2% vs 23.7%).</p>
+</li>
+<li>
+<p><strong>Summer (Q3) brings the most revenue every year.</strong> At the Resort Hotel, summer alone brings 58% of realized revenue,
+  at almost three times the winter rate, but it is also the season with the most cancellations (31.3%).</p>
+</li>
+<li>
+<p>The riskiest segment: individual (Transient) guests booking online for the City Hotel in summer cancel <strong>38.9%</strong> of the time.</p>
+</li>
+<li>Group bookings cancel almost twice as often at the City Hotel as at the Resort Hotel (33.9% vs 19.5%).</li>
+</ul>
+<p><strong>Caution:</strong> 2015 starts in July and 2017 ends in August, so yearly totals are not directly comparable.</p>
+<p><strong>Next step:</strong> <code>04_eda.ipynb</code> – visual exploration of the cleaned data.</p></div>
+    <div class="pager"><a href="03.html"><small>← Previous notebook</small>03 · Outlier Analysis</a><a class="next" href="05.html"><small>Next notebook →</small>05 · Exploratory Data Analysis (EDA)</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script>window.SITE_ROOT = "../";</script>
+<script src="../assets/js/site.js?v=1794044526"></script>
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="../assets/js/notebook.js?v=1794044526"></script>
+</body>
+</html>

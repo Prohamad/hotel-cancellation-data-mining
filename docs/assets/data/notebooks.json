@@ -1,0 +1,82 @@
+[
+ {
+  "id": "01",
+  "title": "Data Understanding",
+  "desc": "Load the data, attribute types, missing values, duplicates and the class label.",
+  "stage": "data.html",
+  "md": 14,
+  "code": 10,
+  "img": 1,
+  "file": "01_data_understanding.ipynb"
+ },
+ {
+  "id": "02",
+  "title": "Data Preprocessing",
+  "desc": "Remove duplicates and invalid rows, handle missing values and engineer features.",
+  "stage": "preprocessing.html",
+  "md": 15,
+  "code": 14,
+  "img": 0,
+  "file": "02_preprocessing.ipynb"
+ },
+ {
+  "id": "03",
+  "title": "Outlier Analysis",
+  "desc": "IQR and Z-score on the numeric attributes; evaluate and handle the outliers.",
+  "stage": "outliers.html",
+  "md": 12,
+  "code": 9,
+  "img": 1,
+  "file": "03_outlier_analysis.ipynb"
+ },
+ {
+  "id": "04",
+  "title": "Data Warehouse",
+  "desc": "Star schema in SQLite: ETL, validation and OLAP queries.",
+  "stage": "warehouse.html",
+  "md": 21,
+  "code": 17,
+  "img": 0,
+  "file": "04_data_warehouse.ipynb"
+ },
+ {
+  "id": "05",
+  "title": "Exploratory Data Analysis (EDA)",
+  "desc": "Distributions, cancellation by attribute, seasonality and correlations.",
+  "stage": "eda.html",
+  "md": 12,
+  "code": 8,
+  "img": 7,
+  "file": "05_eda.ipynb"
+ },
+ {
+  "id": "06",
+  "title": "Classification: Predicting Hotel Booking Cancellation",
+  "desc": "Decision Tree, Naive Bayes, k-NN, Logistic Regression and Random Forest.",
+  "stage": "classification.html",
+  "md": 34,
+  "code": 38,
+  "img": 7,
+  "file": "06_classification.ipynb"
+ },
+ {
+  "id": "07",
+  "title": "Cluster Analysis: Grouping Similar Bookings",
+  "desc": "K-Means with the elbow method and silhouette; agglomerative clustering.",
+  "stage": "clustering.html",
+  "md": 11,
+  "code": 12,
+  "img": 3,
+  "file": "07_clustering.ipynb"
+ },
+ {
+  "id": "08",
+  "title": "Numeric Prediction: Predicting the Room Price (ADR)",
+  "desc": "Simple and multiple linear regression and decision tree regression for ADR.",
+  "stage": "regression.html",
+  "md": 12,
+  "code": 16,
+  "img": 4,
+  "file": "08_regression.ipynb"
+ }
+]

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What separates canceled bookings from the rest · Hotel Booking Cancellation</title>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/site.css?v=1794044526">
+<link rel="stylesheet" href="assets/css/stage.css?v=1794044526">
+</head>
+<body>
+<div id="nav"></div>
+<header class="page-hero">
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 05</div>
+    <div class="eyebrow" style="margin-top:14px">Stage 05 · Exploratory Analysis</div>
+    <h1>What separates canceled bookings from the rest?</h1>
+    <p class="lead">Distributions, cancellation rates by attribute, seasonality and correlations on the final dataset (86,620 bookings). All charts are interactive and computed from the data.</p>
+    <div class="meta"><span class="pill ">86,620 bookings</span><span class="pill remove">27.7% canceled</span><span class="pill ">6 views</span><a class="nb-link" href="nb/05.html" style="margin-left:auto">{ } View notebook 05</a></div>
+  </div>
+</header>
+<div class="wrap layout">
+  <aside class="toc"><b>On this page</b><a href="#dist">Distributions</a><a href="#rates">Cancellation by attribute</a><a href="#season">Seasonality</a><a href="#corr">Correlation</a><a href="#impl">Implications</a></aside>
+  <main class="content">
+
+    <section id="dist">
+      <h2>Distributions</h2>
+      <p>All three are right-skewed: most bookings are short, made a few weeks ahead and around €100 per night. The dashed line is the median.</p>
+      <div class="tabs" id="t-dist"><button class="on" data-k="lead_time">lead_time</button><button data-k="adr">adr</button><button data-k="total_nights">total_nights</button></div>
+      <div class="chart"><div id="c-dist" style="height:280px"></div></div>
+    </section>
+    <section id="rates">
+      <h2>Cancellation by attribute</h2>
+      <p>Each bar is the share of canceled bookings in that group; the dashed line is the overall rate (27.7%). Large gaps mean the attribute is useful for classification.</p>
+      <div class="tabs" id="t-rate"><button class="on" data-k="lead">Lead time</button><button data-k="deposit">Deposit</button><button data-k="segment">Segment</button>
+        <button data-k="requests">Special requests</button><button data-k="customer">Customer type</button><button data-k="prev">Previous cancel</button></div>
+      <div class="chart"><div id="c-rate" style="height:320px"></div></div>
+    </section>
+    <section id="season">
+      <h2>Seasonality</h2>
+      <div class="grid g2">
+        <div class="chart"><div id="c-adr" style="height:280px"></div><p class="figcap">Average daily rate (€) by arrival month</p></div>
+        <div class="chart"><div id="c-n" style="height:280px"></div><p class="figcap">Bookings by arrival month · line = % canceled</p></div>
+      </div>
+    </section>
+    <section id="corr">
+      <h2>Correlation with is_canceled</h2>
+      <p>Pearson correlation of numeric attributes with the class label. All values are weak (|r| &lt; 0.2): no single attribute decides cancellation, so models must combine several.</p>
+      <div class="chart"><div id="c-corr" style="height:340px"></div></div>
+    </section>
+    <section id="impl">
+      <h2>Implications for modelling</h2>
+      <div class="grid g3">
+        <div class="card"><span class="num">01</span><h3 style="margin-top:12px">Lead time first</h3><p>Cancellation rises from 8.5% to 41% with lead time — expected to be the first split of the decision tree.</p></div>
+        <div class="card"><span class="num">02</span><h3 style="margin-top:12px">Combinations matter</h3><p>Weak linear correlations but large group differences point to tree-based models over linear ones.</p></div>
+        <div class="card"><span class="num">03</span><h3 style="margin-top:12px">Imbalance</h3><p>27.7% positive class: report precision, recall and F1, not only accuracy.</p></div>
+      </div>
+    </section>
+    <div class="pager"><a href="warehouse.html"><small>← Previous</small>04 · Data Warehouse</a><a class="next" href="classification.html"><small>Next →</small>06 · Classification</a></div>
+  </main>
+</div>
+<div id="footer"></div>
+<script src="assets/vendor/plotly.min.js"></script>
+<script src="assets/js/site.js?v=1794044526"></script>
+<script src="assets/js/stage.js?v=1794044526"></script>
+<script>
+
+STAGE.load().then(({ eda }) => {
+  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const RANGE = { lead_time: [600, 40, "days"], adr: [400, 40, "€ per night"], total_nights: [21, 21, "nights"] };
+  const dist = k => { const [q, b, u] = RANGE[k], w = q / b, h = eda.hist[k];
+    Plotly.react("c-dist", [{ type: "bar", x: h.map((_, i) => i * w + w / 2), y: h, width: w * .9, marker: { color: STAGE.C.blue },
+      hovertemplate: "%{x:.0f} " + u + "<br>%{y:,} bookings<extra></extra>" }],
+      PLOT.layout({ xaxis: { title: u, gridcolor: "#232327" }, yaxis: { title: "bookings", gridcolor: "#232327" },
+        shapes: [{ type: "line", x0: eda.median[k], x1: eda.median[k], y0: 0, y1: 1, yref: "paper", line: { dash: "dash", color: "#0b1220" } }],
+        annotations: [{ x: eda.median[k], y: 1, yref: "paper", text: "median " + eda.median[k], showarrow: false, xanchor: "left", xshift: 6, font: { size: 11 } }] }), PLOT.config); };
+  const rate = k => { const d = eda[k];
+    Plotly.react("c-rate", [{ type: "bar", x: d.labels, y: d.rate, text: d.rate.map(v => v + "%"), textposition: "outside", cliponaxis: false,
+      marker: { color: d.rate.map(v => v > 27.7 ? STAGE.C.orange : STAGE.C.cyan) }, customdata: d.n.map(STAGE.fmt),
+      hovertemplate: "%{x}<br>%{y}% canceled<br>%{customdata} bookings<extra></extra>" }],
+      PLOT.layout({ xaxis: { type: "category" }, yaxis: { ticksuffix: "%", gridcolor: "#232327", range: [0, Math.max(...d.rate) * 1.18] },
+        shapes: [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 27.7, y1: 27.7, line: { dash: "dash", color: "#0b1220" } }] }), PLOT.config); };
+  STAGE.tabs("t-dist", dist); STAGE.tabs("t-rate", rate); dist("lead_time"); rate("lead");
+  Plotly.react("c-adr", ["City Hotel", "Resort Hotel"].map((h, i) => ({ type: "scatter", mode: "lines+markers", name: h, x: M, y: eda.adr_month[h],
+    line: { color: i ? STAGE.C.green : STAGE.C.blue, width: 2.5, shape: "spline" } })),
+    PLOT.layout({ showlegend: true, legend: { orientation: "h", y: 1.12 }, yaxis: { tickprefix: "€", gridcolor: "#232327" }, xaxis: { type: "category" } }), PLOT.config);
+  Plotly.react("c-n", [...["City Hotel", "Resort Hotel"].map((h, i) => ({ type: "bar", name: h, x: M, y: eda.n_month[h],
+    marker: { color: i ? STAGE.C.green : STAGE.C.blue } })),
+    { type: "scatter", mode: "lines", name: "% canceled", x: M, y: eda.cr_month, yaxis: "y2", line: { color: STAGE.C.orange, width: 2.5, shape: "spline" } }],
+    PLOT.layout({ barmode: "stack", showlegend: true, legend: { orientation: "h", y: 1.12 }, margin: { l: 50, r: 44, t: 26, b: 40 },
+      xaxis: { type: "category" }, yaxis: { gridcolor: "#232327" }, yaxis2: { overlaying: "y", side: "right", ticksuffix: "%", showgrid: false, range: [0, 45] } }), PLOT.config);
+  Plotly.react("c-corr", [{ type: "bar", orientation: "h", y: eda.corr.labels, x: eda.corr.r, text: eda.corr.r.map(v => v.toFixed(3)), textposition: "outside", cliponaxis: false,
+    marker: { color: eda.corr.r.map(v => v > 0 ? STAGE.C.orange : STAGE.C.blue) } }],
+    PLOT.layout({ margin: { l: 170, r: 50, t: 10, b: 30 }, yaxis: { type: "category" }, xaxis: { range: [-0.2, 0.25], gridcolor: "#232327", zeroline: true, zerolinecolor: "#94a3b8" } }), PLOT.config);
+});
+</script>
+</body>
+</html>
