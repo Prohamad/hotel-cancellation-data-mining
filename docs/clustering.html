@@ -15,14 +15,19 @@
     <div class="crumbs"><a href="index.html">Home</a> / <a href="index.html#pipeline">Pipeline</a> / Stage 07</div>
     <div class="eyebrow" style="margin-top:14px">Stage 07 · Clustering</div>
     <h1>Four kinds of bookings, found without the label</h1>
-    <p class="lead">K-Means groups bookings by five normalised attributes — lead time, nights, price, guests and special requests. The class label is not used to build the clusters; it is only used afterwards to describe them.</p>
-    <div class="meta"><span class="pill ">k = 4</span><span class="pill ">silhouette 0.32</span><span class="pill keep">unsupervised</span><a class="nb-link" href="nb/07.html" style="margin-left:auto">{ } View notebook 07</a></div>
+    <p class="lead">K-Means groups bookings by five normalised attributes — lead time, nights, price, guests and special requests. The class label is not used to build the clusters; it is only used afterwards to describe them. Hopkins, K-Medoids, AGNES (four links) and DBSCAN were then compared against it.</p>
+    <div class="meta"><span class="pill ">k = 4</span><span class="pill ">silhouette 0.32</span><span class="pill ">Hopkins 0.99</span><span class="pill keep">unsupervised</span><a class="nb-link" href="nb/07.html" style="margin-left:auto">{ } View notebook 07</a></div>
   </div>
 </header>
 <div class="wrap layout">
-  <aside class="toc"><b>On this page</b><a href="#k">Choosing k</a><a href="#segments">Segments</a><a href="#agnes">Agglomerative</a></aside>
+  <aside class="toc"><b>On this page</b><a href="#hopkins">Clusterability</a><a href="#k">Choosing k</a><a href="#segments">Segments</a><a href="#medoids">K-Medoids</a><a href="#agnes">Agglomerative</a><a href="#dbscan">DBSCAN</a><a href="#compare">Comparison</a></aside>
   <main class="content">
 
+    <section id="hopkins">
+      <h2>Is the data clusterable?</h2>
+      <p>The Hopkins statistic compares distances to nearest neighbours for random points and for real bookings. A value near 0.5 means random data; a value near 1 means a clear cluster structure.
+        With 200 sampled points the result is <b>H = 0.987</b>, so clustering is meaningful here.</p>
+    </section>
     <section id="k">
       <h2>Choosing k</h2>
       <p>The empirical rule k ≈ √(n/2) gives 208 — far too many to describe the data. The elbow of the SSE curve is at <b>k = 4</b>.</p>
@@ -34,15 +39,47 @@
       <div class="segs" id="segs"></div>
       <div class="chart" style="margin-top:14px"><div id="c-radar" style="height:380px"></div><p class="figcap">Centroids in original units, scaled per attribute (0 = lowest cluster, 1 = highest)</p></div>
     </section>
+    <section id="medoids">
+      <h2>K-Medoids (PAM)</h2>
+      <p>Same idea as K-Means, but each cluster centre is a real booking (a medoid), which makes it less sensitive to extreme values. It needs a full distance matrix, so a 2,000-booking sample was used.
+        Cluster sizes are 737 · 592 · 335 · 336, silhouette 0.301, total loss 363.4.</p>
+    </section>
     <section id="agnes">
       <h2>Agglomerative clustering (AGNES)</h2>
       <p>Run on a random sample of 2,000 bookings because the method needs all pairwise distances.</p>
       <table class="t"><thead><tr><th>Link</th><th>Cluster sizes</th><th>Silhouette</th><th>Reading</th></tr></thead><tbody>
         <tr><td>single</td><td class="num">1997 · 1 · 1 · 1</td><td class="num">0.399</td><td>isolates outliers — misleading</td></tr>
         <tr><td>average</td><td class="num">1995 · 3 · 1 · 1</td><td class="num">0.322</td><td>isolates outliers — misleading</td></tr>
+        <tr><td>centroid</td><td class="num">1923 · 75 · 1 · 1</td><td class="num">0.399</td><td>isolates outliers — misleading</td></tr>
         <tr><td>complete</td><td class="num">339 · 1169 · 191 · 301</td><td class="num">0.128</td><td>usable groups</td></tr>
         <tr><td><b>K-Means</b></td><td class="num">same sample</td><td class="num"><b>0.320</b></td><td>best usable result</td></tr>
       </tbody></table>
+    </section>
+    <section id="dbscan">
+      <h2>DBSCAN (density-based)</h2>
+      <p>DBSCAN needs no k. A point is a core point if at least MinPts bookings lie within distance Eps; points reachable from no core point are noise.
+        It ran on a random sample of 20,000 bookings because the neighbour search needs a lot of memory.</p>
+      <table class="t"><thead><tr><th>Eps</th><th>MinPts</th><th>Clusters</th><th>Noise points</th></tr></thead><tbody>
+        <tr><td class="num">0.05</td><td class="num">10</td><td class="num">22</td><td class="num">1,286</td></tr>
+        <tr><td class="num">0.05</td><td class="num">20</td><td class="num">14</td><td class="num">2,223</td></tr>
+        <tr><td class="num">0.10</td><td class="num">10</td><td class="num">19</td><td class="num">240</td></tr>
+        <tr><td class="num"><b>0.10</b></td><td class="num"><b>20</b></td><td class="num"><b>15</b></td><td class="num"><b>379</b></td></tr>
+        <tr><td class="num">0.15</td><td class="num">10</td><td class="num">18</td><td class="num">107</td></tr>
+        <tr><td class="num">0.15</td><td class="num">20</td><td class="num">17</td><td class="num">157</td></tr>
+      </tbody></table>
+      <p class="figcap">Chosen: Eps = 0.1, MinPts = 20 → 15 clusters, 379 noise points (1.9%), silhouette 0.356. Noise bookings have longer lead time (154 vs 79 days),
+        longer stays (7.6 vs 3.6 nights) and higher adr (€157 vs €106), but the same cancellation rate (0.27), so unusual bookings do not cancel more often.</p>
+    </section>
+    <section id="compare">
+      <h2>Method comparison</h2>
+      <table class="t"><thead><tr><th>Method</th><th>Needs k?</th><th>Result</th><th>Silhouette</th></tr></thead><tbody>
+        <tr><td><b>K-Means</b></td><td>Yes</td><td>4 balanced, interpretable segments</td><td class="num">0.323</td></tr>
+        <tr><td>K-Medoids</td><td>Yes</td><td>4 segments, medoids are real bookings</td><td class="num">0.301</td></tr>
+        <tr><td>AGNES complete</td><td>Yes</td><td>usable groups on a sample</td><td class="num">0.128</td></tr>
+        <tr><td>AGNES single / average / centroid</td><td>Yes</td><td>one huge cluster plus single points</td><td class="num">0.32–0.40</td></tr>
+        <tr><td>DBSCAN</td><td>No</td><td>15 small dense clusters and 1.9% noise</td><td class="num">0.356</td></tr>
+      </tbody></table>
+      <p class="figcap">K-Means is kept as the main method: its segments are the easiest to explain. A high silhouette alone is not enough, because single and centroid links reach it by isolating a few points.</p>
     </section>
     <div class="pager"><a href="classification.html"><small>← Previous</small>06 · Classification</a><a class="next" href="regression.html"><small>Next →</small>08 · Numeric Prediction</a></div>
   </main>

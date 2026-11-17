@@ -24,8 +24,8 @@
   "title": "Outlier Analysis",
   "desc": "IQR and Z-score on the numeric attributes; evaluate and handle the outliers.",
   "stage": "outliers.html",
-  "md": 12,
-  "code": 9,
+  "md": 17,
+  "code": 13,
   "img": 1,
   "file": "03_outlier_analysis.ipynb"
  },
@@ -64,8 +64,8 @@
   "title": "Cluster Analysis: Grouping Similar Bookings",
   "desc": "K-Means with the elbow method and silhouette; agglomerative clustering.",
   "stage": "clustering.html",
-  "md": 11,
-  "code": 12,
+  "md": 20,
+  "code": 20,
   "img": 3,
   "file": "07_clustering.ipynb"
  },

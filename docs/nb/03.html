@@ -17,7 +17,7 @@
     <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 03</div>
     <h1>Outlier Analysis</h1>
     <div class="meta">
-      <span class="pill">12 explanation cells</span><span class="pill">9 code cells</span><span class="pill">1 figures</span>
+      <span class="pill">17 explanation cells</span><span class="pill">13 code cells</span><span class="pill">1 figures</span>
       <span class="nb-tools">
         <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
         <a class="nb-link" href="../outliers.html">View the stage page →</a>
@@ -26,14 +26,29 @@
   </div>
 </header>
 <div class="wrap layout">
-  <aside class="toc nb-toc"><b>Contents</b><a href="#s-02b-outlier-analysis" class="l1">02b — Outlier Analysis</a><a href="#s-1-attributes-to-check" class="l2">1. Attributes to Check</a><a href="#s-2-iqr-method" class="l2">2. IQR Method</a><a href="#s-3-z-score-method" class="l2">3. Z-score Method</a><a href="#s-4-evaluating-the-outliers" class="l2">4. Evaluating the Outliers</a><a href="#s-4-1-total-guests-problematic-values" class="l3">4.1 total_guests: problematic values</a><a href="#s-4-2-adr-valid-observations" class="l3">4.2 adr: valid observations</a><a href="#s-4-3-lead-time-and-total-nights-valid-observations" class="l3">4.3 lead_time and total_nights: valid observations</a><a href="#s-5-handling-the-outliers" class="l2">5. Handling the Outliers</a></aside>
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-03-outlier-analysis" class="l1">03 — Outlier Analysis</a><a href="#s-basic-concepts" class="l2">Basic Concepts</a><a href="#s-1-attributes-to-check" class="l2">1. Attributes to Check</a><a href="#s-2-iqr-method" class="l2">2. IQR Method</a><a href="#s-3-z-score-method" class="l2">3. Z-score Method</a><a href="#s-4-histogram-based-method-nonparametric" class="l2">4. Histogram-Based Method (nonparametric)</a><a href="#s-5-contextual-outliers" class="l2">5. Contextual Outliers</a><a href="#s-6-evaluating-the-outliers" class="l2">6. Evaluating the Outliers</a><a href="#s-6-1-total-guests-problematic-values" class="l3">6.1 total_guests: problematic values</a><a href="#s-6-2-adr-valid-observations" class="l3">6.2 adr: valid observations</a><a href="#s-6-3-lead-time-and-total-nights-valid-observations" class="l3">6.3 lead_time and total_nights: valid observations</a><a href="#s-7-handling-the-outliers" class="l2">7. Handling the Outliers</a></aside>
   <main class="content nb">
-<div class="cell md"><h1 id="s-02b-outlier-analysis">02b — Outlier Analysis</h1>
+<div class="cell md"><h1 id="s-03-outlier-analysis">03 — Outlier Analysis</h1>
 <p>In this notebook we:</p>
 <ul>
-<li>Identify outliers in the main numeric attributes using the <strong>IQR</strong> and <strong>Z-score</strong> methods</li>
+<li>Identify outliers in the main numeric attributes with three statistical methods: <strong>IQR</strong>, <strong>Z-score</strong> and the <strong>histogram method</strong></li>
+<li>Look for <strong>contextual outliers</strong> (a price that is unusual for its hotel and month)</li>
 <li>Evaluate whether the outliers are <strong>valid observations</strong> or <strong>problematic values</strong></li>
 <li>Decide how to handle them and save the final dataset used by the models</li>
+</ul></div>
+<div class="cell md"><h2 id="s-basic-concepts">Basic Concepts</h2>
+<p>An <strong>outlier</strong> is a data point that is significantly different from most other points in a dataset.
+It may come from an unusual event, a measurement or data-entry error, or a change in the process that generates the data.</p>
+<ul>
+<li><strong>Outliers versus noise:</strong> noise is a small random variation that is not meaningful; an outlier differs significantly from the normal pattern and may need investigation.</li>
+<li><strong>Global outlier:</strong> differs significantly from the entire dataset.</li>
+<li><strong>Contextual (conditional) outlier:</strong> unusual only in a specific context. <em>Contextual attributes</em> define the context (here: hotel and arrival month); <em>behavioural attributes</em> are the ones we examine (here: <code>adr</code>).</li>
+<li><strong>Collective outlier:</strong> a group of related points that is unusual together. It needs the relationships between records and is not examined here.</li>
+</ul>
+<p>All methods in this notebook are <strong>unsupervised</strong> (the class label is not used) and <strong>statistical</strong>:</p>
+<ul>
+<li><strong>Parametric:</strong> assume a distribution (the Z-score assumes a normal distribution).</li>
+<li><strong>Nonparametric:</strong> assume no distribution (IQR / boxplot and the histogram method).</li>
 </ul></div>
 <div class="cell code"><div class="in"><span class="prompt">In [1]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
@@ -252,10 +267,223 @@
 </table>
 </div></div></div></div>
 <div class="cell md"><p><strong>Note:</strong> for <code>total_guests</code>, Q1 = Q3 = 2, so IQR = 0 and the IQR method flags every booking that is not
-2 guests (about 30,000). The IQR method is not suitable for this attribute; the Z-score method is used instead.</p></div>
-<div class="cell md"><h2 id="s-4-evaluating-the-outliers">4. Evaluating the Outliers</h2>
-<h3 id="s-4-1-total-guests-problematic-values">4.1 <code>total_guests</code>: problematic values</h3></div>
-<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">][[</span><span class="s2">"adults"</span><span class="p">,</span> <span class="s2">"children"</span><span class="p">,</span> <span class="s2">"babies"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]]</span>
+2 guests (about 30,000). The IQR method is not suitable for this attribute; the Z-score method is used instead.</p>
+<p>The Z-score is a <strong>parametric</strong> method: the mean and standard deviation assume that the data are roughly normal.
+<code>lead_time</code> and <code>adr</code> are right-skewed (notebook 05), so the <strong>nonparametric</strong> IQR and histogram methods are used as a cross-check.</p></div>
+<div class="cell md"><h2 id="s-4-histogram-based-method-nonparametric">4. Histogram-Based Method (nonparametric)</h2>
+<p>The values are divided into intervals (bins). Bookings in bins with a low frequency are more likely to be outliers.
+The <strong>outlier score</strong> is the inverse of the probability of the bin:</p>
+<p>$$OutlierScore = \frac{1}{Probability\ of\ the\ bin}$$</p>
+<p>A higher score means a more unusual observation. Here <code>adr</code> is divided into 10 equal-width bins.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">adr_bins</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">cut</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">counts</span> <span class="o">=</span> <span class="n">adr_bins</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+
+<span class="n">hist_table</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"bookings"</span><span class="p">:</span> <span class="n">counts</span><span class="p">,</span> <span class="s2">"probability"</span><span class="p">:</span> <span class="n">counts</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)})</span>
+<span class="n">hist_table</span><span class="p">[</span><span class="s2">"outlier score"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">hist_table</span><span class="p">[</span><span class="s2">"probability"</span><span class="p">]</span>
+<span class="n">hist_table</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>bookings</th>
+      <th>probability</th>
+      <th>outlier score</th>
+    </tr>
+    <tr>
+      <th>adr</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>(-0.51, 51.0]</th>
+      <td>9385</td>
+      <td>0.1083</td>
+      <td>9.2314</td>
+    </tr>
+    <tr>
+      <th>(51.0, 102.0]</th>
+      <td>36489</td>
+      <td>0.4212</td>
+      <td>2.3743</td>
+    </tr>
+    <tr>
+      <th>(102.0, 153.0]</th>
+      <td>26684</td>
+      <td>0.3080</td>
+      <td>3.2468</td>
+    </tr>
+    <tr>
+      <th>(153.0, 204.0]</th>
+      <td>9715</td>
+      <td>0.1121</td>
+      <td>8.9179</td>
+    </tr>
+    <tr>
+      <th>(204.0, 255.0]</th>
+      <td>3302</td>
+      <td>0.0381</td>
+      <td>26.2377</td>
+    </tr>
+    <tr>
+      <th>(255.0, 306.0]</th>
+      <td>842</td>
+      <td>0.0097</td>
+      <td>102.8943</td>
+    </tr>
+    <tr>
+      <th>(306.0, 357.0]</th>
+      <td>180</td>
+      <td>0.0021</td>
+      <td>481.3167</td>
+    </tr>
+    <tr>
+      <th>(357.0, 408.0]</th>
+      <td>34</td>
+      <td>0.0004</td>
+      <td>2548.1471</td>
+    </tr>
+    <tr>
+      <th>(408.0, 459.0]</th>
+      <td>4</td>
+      <td>0.0000</td>
+      <td>21659.2500</td>
+    </tr>
+    <tr>
+      <th>(459.0, 510.0]</th>
+      <td>2</td>
+      <td>0.0000</td>
+      <td>43318.5000</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">rare_bins</span> <span class="o">=</span> <span class="n">hist_table</span><span class="p">[</span><span class="n">hist_table</span><span class="p">[</span><span class="s2">"probability"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Bins with probability &lt; 1% (outlier score &gt; 100): adr above"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">rare_bins</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Bookings in these bins:"</span><span class="p">,</span> <span class="n">adr_bins</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">rare_bins</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</pre></div><div class="out"><pre class="o-text">Bins with probability &lt; 1% (outlier score &gt; 100): adr above 255.0
+Bookings in these bins: 1062
+</pre></div></div>
+<div class="cell md"><p>Only the bins above about €255 have a probability below 1% (outlier score above 100): <strong>1,062 bookings</strong>.
+They are a subset of the 2,511 bookings above the IQR fence (€226.7), so the histogram method points to the most extreme prices,
+which are peak-season and large-room bookings (section 6.2).</p></div>
+<div class="cell md"><h2 id="s-5-contextual-outliers">5. Contextual Outliers</h2>
+<p>A price that is normal in July can be unusual in January. To find contextual outliers for <code>adr</code>:</p>
+<ul>
+<li><strong>Contextual attributes:</strong> <code>hotel</code> and <code>arrival_date_month</code></li>
+<li><strong>Behavioural attribute:</strong> <code>adr</code></li>
+</ul>
+<p>The IQR rule is applied <strong>inside each context</strong> (each hotel and month) instead of on the whole dataset.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">group</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">"hotel"</span><span class="p">,</span> <span class="s2">"arrival_date_month"</span><span class="p">])[</span><span class="s2">"adr"</span><span class="p">]</span>
+<span class="n">q1_ctx</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.25</span><span class="p">))</span>
+<span class="n">q3_ctx</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.75</span><span class="p">))</span>
+<span class="n">iqr_ctx</span> <span class="o">=</span> <span class="n">q3_ctx</span> <span class="o">-</span> <span class="n">q1_ctx</span>
+
+<span class="n">low_ctx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">q1_ctx</span> <span class="o">-</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr_ctx</span>
+<span class="n">high_ctx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">q3_ctx</span> <span class="o">+</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr_ctx</span>
+<span class="n">contextual</span> <span class="o">=</span> <span class="n">low_ctx</span> <span class="o">|</span> <span class="n">high_ctx</span>
+<span class="n">global_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">iqr_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"lower"</span><span class="p">])</span> <span class="o">|</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">iqr_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"upper"</span><span class="p">])</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span>
+    <span class="s2">"Global outliers (IQR on all bookings)"</span><span class="p">:</span> <span class="n">global_out</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="s2">"Contextual outliers (IQR per hotel and month)"</span><span class="p">:</span> <span class="n">contextual</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="s2">"  flagged by both"</span><span class="p">:</span> <span class="p">(</span><span class="n">global_out</span> <span class="o">&amp;</span> <span class="n">contextual</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="s2">"  contextual only"</span><span class="p">:</span> <span class="p">(</span><span class="n">contextual</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">global_out</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="s2">"  global only"</span><span class="p">:</span> <span class="p">(</span><span class="n">global_out</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">contextual</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+<span class="p">})</span>
+</pre></div><div class="out"><pre class="o-text">Global outliers (IQR on all bookings)            2511
+Contextual outliers (IQR per hotel and month)    3936
+  flagged by both                                 871
+  contextual only                                3065
+  global only                                    1640
+dtype: int64</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="s2">"Contextual outliers below the normal range:"</span><span class="p">,</span> <span class="n">low_ctx</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="s2">"| of which adr = 0:"</span><span class="p">,</span> <span class="p">(</span><span class="n">low_ctx</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+<span class="n">only_context</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">contextual</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">global_out</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Contextual-only outliers, reserved room type (top 4):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">only_context</span><span class="p">[</span><span class="s2">"reserved_room_type"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="n">only_context</span><span class="p">[[</span><span class="s2">"hotel"</span><span class="p">,</span> <span class="s2">"arrival_date_month"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"reserved_room_type"</span><span class="p">,</span> <span class="s2">"total_guests"</span><span class="p">]]</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div><div class="out"><pre class="o-text">Contextual outliers below the normal range: 1074 | of which adr = 0: 883
+
+Contextual-only outliers, reserved room type (top 4):
+reserved_room_type
+A    1031
+F     561
+D     489
+G     404
+Name: count, dtype: int64
+</pre><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>hotel</th>
+      <th>arrival_date_month</th>
+      <th>adr</th>
+      <th>reserved_room_type</th>
+      <th>total_guests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>120</th>
+      <td>Resort Hotel</td>
+      <td>July</td>
+      <td>0.0</td>
+      <td>H</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>403</th>
+      <td>Resort Hotel</td>
+      <td>July</td>
+      <td>0.0</td>
+      <td>A</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>407</th>
+      <td>Resort Hotel</td>
+      <td>July</td>
+      <td>0.0</td>
+      <td>A</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1127</th>
+      <td>Resort Hotel</td>
+      <td>August</td>
+      <td>8.0</td>
+      <td>D</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>1275</th>
+      <td>Resort Hotel</td>
+      <td>August</td>
+      <td>8.0</td>
+      <td>A</td>
+      <td>2</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p>The two views flag different bookings:</p>
+<ul>
+<li><strong>1,640 global only:</strong> high prices that are normal inside their own context (for example the Resort Hotel in summer). They are not contextual outliers.</li>
+<li><strong>3,065 contextual only:</strong> prices that are unusual for their hotel and month although they are not extreme overall. 1,074 of them are below the normal range, mostly bookings with <code>adr = 0</code> (883) in months when the usual price is high. The rest are above the normal range for their month; the most common reserved room types are A, F, D and G.</li>
+</ul>
+<p>A price of €0 is possible (for example a complimentary booking) and none of these bookings shows signs of a data-entry error, so they describe real prices and are <strong>kept</strong>.
+The same price can be normal in one context and unusual in another, which is why the context matters.</p></div>
+<div class="cell md"><h2 id="s-6-evaluating-the-outliers">6. Evaluating the Outliers</h2>
+<h3 id="s-6-1-total-guests-problematic-values">6.1 <code>total_guests</code>: problematic values</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">][[</span><span class="s2">"adults"</span><span class="p">,</span> <span class="s2">"children"</span><span class="p">,</span> <span class="s2">"babies"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]]</span>
 </pre></div><div class="out"><div class="o-html"><div>
 
 <table class="dataframe">
@@ -430,8 +658,8 @@
 <div class="cell md"><p>The Z-score method flags 152 bookings with 5 or more guests. Bookings with 5 guests (135) are normal family
 bookings, but the 17 bookings with <strong>more than 5 guests</strong> are <strong>data-entry errors</strong>: 20–55 adults in one room with a price of €0, or 9–10 babies with
 1–2 adults. A hotel room does not hold these numbers of guests. They are <strong>removed</strong>.</p></div>
-<div class="cell md"><h3 id="s-4-2-adr-valid-observations">4.2 <code>adr</code>: valid observations</h3></div>
-<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">upper_adr</span> <span class="o">=</span> <span class="n">iqr_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"upper"</span><span class="p">]</span>
+<div class="cell md"><h3 id="s-6-2-adr-valid-observations">6.2 <code>adr</code>: valid observations</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="n">upper_adr</span> <span class="o">=</span> <span class="n">iqr_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">,</span> <span class="s2">"upper"</span><span class="p">]</span>
 <span class="n">high_adr</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"adr"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">upper_adr</span><span class="p">]</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Bookings with adr above"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">upper_adr</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">":"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">high_adr</span><span class="p">))</span>
@@ -459,8 +687,8 @@ Name: count, dtype: int64
 </pre></div></div>
 <div class="cell md"><p>High prices are mostly in summer months and in larger room types, so they are <strong>valid observations</strong>
 (peak-season and family rooms), not errors. They are <strong>kept</strong>.</p></div>
-<div class="cell md"><h3 id="s-4-3-lead-time-and-total-nights-valid-observations">4.3 <code>lead_time</code> and <code>total_nights</code>: valid observations</h3></div>
-<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"lead_time"</span><span class="p">)[[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]],</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<div class="cell md"><h3 id="s-6-3-lead-time-and-total-nights-valid-observations">6.3 <code>lead_time</code> and <code>total_nights</code>: valid observations</h3></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"lead_time"</span><span class="p">)[[</span><span class="s2">"lead_time"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"is_canceled"</span><span class="p">]],</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"total_nights"</span><span class="p">)[[</span><span class="s2">"total_nights"</span><span class="p">,</span> <span class="s2">"market_segment"</span><span class="p">,</span> <span class="s2">"customer_type"</span><span class="p">,</span> <span class="s2">"adr"</span><span class="p">]])</span>
 </pre></div><div class="out"><pre class="o-text">       lead_time market_segment customer_type  is_canceled
 3309         709         Direct     Transient            0
@@ -479,7 +707,7 @@ Name: count, dtype: int64
 <div class="cell md"><p>Bookings made up to two years in advance and stays of several weeks are possible in real hotels.
 They describe real customer behaviour (for example, early bookings are canceled more often), so they are <strong>kept</strong>.
 Decision trees are not affected by extreme values, because they split on thresholds.</p></div>
-<div class="cell md"><h2 id="s-5-handling-the-outliers">5. Handling the Outliers</h2>
+<div class="cell md"><h2 id="s-7-handling-the-outliers">7. Handling the Outliers</h2>
 <table>
 <thead>
 <tr>
@@ -520,8 +748,10 @@ Decision trees are not affected by extreme values, because they split on thresho
 <td>keep</td>
 </tr>
 </tbody>
-</table></div>
-<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</table>
+<p>The histogram and contextual methods examine the same attribute (<code>adr</code>) and show real prices (peak season, specific rooms, a price of €0), so the decision does not change:
+only the <strong>17 bookings with more than 5 guests</strong> are removed.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [13]</span><pre class="src"><span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
 <span class="n">df_final</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"total_guests"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">before</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df_final</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> rows (removed </span><span class="si">{</span><span class="n">before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">df_final</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 

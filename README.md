@@ -55,7 +55,7 @@ rows (17 impossible guest counts removed).
 Always predicting "not canceled" gives 72.3%. `lead_time` is the first split of the decision tree and the
 strongest signal. All models find about half or fewer of the cancellations because the classes are imbalanced.
 
-**Clustering:** K-Means with k = 4 (elbow method, silhouette ≈ 0.32) finds families/groups (39% canceled),
+**Clustering:** Hopkins statistic (0.99), K-Means (k-means++), K-Medoids, AGNES (single/average/complete/centroid) and DBSCAN were compared; K-Means with k = 4 (elbow method, silhouette ≈ 0.32) finds families/groups (39% canceled),
 single guests (19%), guests with several special requests (20%) and typical couples (30%).
 
 **Numeric prediction (ADR):** decision tree regression R² = 0.754, RMSE = €24.9, MAE = €15.8, better than

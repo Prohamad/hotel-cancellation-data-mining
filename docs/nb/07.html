@@ -17,7 +17,7 @@
     <div class="eyebrow gt" style="margin-top:14px">Jupyter notebook 07</div>
     <h1>Cluster Analysis: Grouping Similar Bookings</h1>
     <div class="meta">
-      <span class="pill">11 explanation cells</span><span class="pill">12 code cells</span><span class="pill">3 figures</span>
+      <span class="pill">20 explanation cells</span><span class="pill">20 code cells</span><span class="pill">3 figures</span>
       <span class="nb-tools">
         <button class="nb-btn" id="toggle-code" aria-pressed="true">Hide code</button>
         <a class="nb-link" href="../clustering.html">View the stage page →</a>
@@ -26,16 +26,18 @@
   </div>
 </header>
 <div class="wrap layout">
-  <aside class="toc nb-toc"><b>Contents</b><a href="#s-06-cluster-analysis-grouping-similar-bookings" class="l1">06 — Cluster Analysis: Grouping Similar Bookings</a><a href="#s-1-attributes-for-clustering" class="l2">1. Attributes for Clustering</a><a href="#s-2-normalise-the-attributes" class="l2">2. Normalise the Attributes</a><a href="#s-3-k-means-clustering" class="l2">3. K-Means Clustering</a><a href="#s-3-1-determining-the-number-of-clusters" class="l3">3.1 Determining the Number of Clusters</a><a href="#s-3-2-final-k-means-model-k-4" class="l3">3.2 Final K-Means Model (k = 4)</a><a href="#s-3-3-describing-the-clusters" class="l3">3.3 Describing the Clusters</a><a href="#s-3-4-cluster-visualisation" class="l3">3.4 Cluster Visualisation</a><a href="#s-4-hierarchical-clustering-agglomerative-agnes" class="l2">4. Hierarchical Clustering: Agglomerative (AGNES)</a><a href="#s-5-summary" class="l2">5. Summary</a></aside>
+  <aside class="toc nb-toc"><b>Contents</b><a href="#s-07-cluster-analysis-grouping-similar-bookings" class="l1">07 — Cluster Analysis: Grouping Similar Bookings</a><a href="#s-1-attributes-for-clustering" class="l2">1. Attributes for Clustering</a><a href="#s-2-normalise-the-attributes" class="l2">2. Normalise the Attributes</a><a href="#s-2-1-clustering-tendency-hopkins-statistic" class="l3">2.1 Clustering Tendency: Hopkins Statistic</a><a href="#s-3-k-means-clustering" class="l2">3. K-Means Clustering</a><a href="#s-3-1-determining-the-number-of-clusters" class="l3">3.1 Determining the Number of Clusters</a><a href="#s-3-2-final-k-means-model-k-4" class="l3">3.2 Final K-Means Model (k = 4)</a><a href="#s-3-3-describing-the-clusters" class="l3">3.3 Describing the Clusters</a><a href="#s-3-4-cluster-visualisation" class="l3">3.4 Cluster Visualisation</a><a href="#s-4-k-medoids-pam" class="l2">4. K-Medoids (PAM)</a><a href="#s-5-hierarchical-clustering-agglomerative-agnes" class="l2">5. Hierarchical Clustering: Agglomerative (AGNES)</a><a href="#s-6-density-based-clustering-dbscan" class="l2">6. Density-Based Clustering: DBSCAN</a><a href="#s-7-comparison-of-the-methods" class="l2">7. Comparison of the Methods</a><a href="#s-8-summary" class="l2">8. Summary</a></aside>
   <main class="content nb">
-<div class="cell md"><h1 id="s-06-cluster-analysis-grouping-similar-bookings">06 — Cluster Analysis: Grouping Similar Bookings</h1>
+<div class="cell md"><h1 id="s-07-cluster-analysis-grouping-similar-bookings">07 — Cluster Analysis: Grouping Similar Bookings</h1>
 <p>A <strong>cluster</strong> is a collection of data objects which are similar to one another within the same cluster
 and dissimilar to the objects in other clusters.</p>
 <p>Cluster analysis is <strong>unsupervised learning</strong>: there are no predefined classes.</p>
 <p>In this notebook:</p>
 <ul>
-<li><strong>Partitioning method:</strong> K-Means</li>
-<li><strong>Hierarchical method:</strong> Agglomerative clustering (AGNES) and the dendrogram</li>
+<li><strong>Clustering tendency:</strong> Hopkins statistic</li>
+<li><strong>Partitioning methods:</strong> K-Means (with K-Means++ initialisation) and K-Medoids (PAM)</li>
+<li><strong>Hierarchical method:</strong> Agglomerative clustering (AGNES) with single, complete, average and centroid link, and the dendrogram</li>
+<li><strong>Density-based method:</strong> DBSCAN</li>
 <li><strong>Evaluation:</strong> Elbow method and silhouette coefficient</li>
 </ul></div>
 <div class="cell code"><div class="in"><span class="prompt">In [1]</span><pre class="src"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -44,7 +46,8 @@ and dissimilar to the objects in other clusters.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinMaxScaler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span><span class="p">,</span> <span class="n">AgglomerativeClustering</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span><span class="p">,</span> <span class="n">AgglomerativeClustering</span><span class="p">,</span> <span class="n">DBSCAN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.neighbors</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearestNeighbors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">silhouette_score</span>
 
 <span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span> <span class="o">=</span> <span class="s2">"#2563eb"</span><span class="p">,</span> <span class="s2">"#06b6d4"</span><span class="p">,</span> <span class="s2">"#10b981"</span><span class="p">,</span> <span class="s2">"#f97316"</span>
@@ -231,10 +234,36 @@ Without normalisation, <code>lead_time</code> (0–709) would dominate <code>tot
   </tbody>
 </table>
 </div></div></div></div>
+<div class="cell md"><h3 id="s-2-1-clustering-tendency-hopkins-statistic">2.1 Clustering Tendency: Hopkins Statistic</h3>
+<p>Before clustering, we check whether the data have an <strong>inherent grouping structure</strong>. The <strong>Hopkins statistic</strong> is a sparse sampling test for spatial randomness:</p>
+<ol>
+<li>Take $m$ random bookings and find the distance $w$ to their nearest neighbour in the data</li>
+<li>Generate $m$ random points in the same space and find the distance $u$ to the nearest booking</li>
+<li>$H = \dfrac{\sum u}{\sum u + \sum w}$</li>
+</ol>
+<p>$H \approx 0.5$: the data are randomly distributed (no clusters). $H$ close to 1: the data are clustered.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [4]</span><pre class="src"><span class="k">def</span><span class="w"> </span><span class="nf">hopkins</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="n">sample</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">m</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">sample</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">]</span>                                <span class="c1"># nearest other booking</span>
+
+    <span class="n">uniform</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">X</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span>                               <span class="c1"># nearest booking</span>
+
+    <span class="k">return</span> <span class="n">u</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Hopkins statistic:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">hopkins</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Hopkins statistic: 0.987
+</pre></div></div>
+<div class="cell md"><p>The Hopkins statistic is close to 1 (0.987), so the bookings are <strong>clustered</strong> and not randomly spread.
+Many bookings are identical or almost identical (guests and special requests are whole numbers), which makes the nearest-neighbour distance inside the data very small and pushes $H$ towards 1.
+The value therefore shows that groups exist; it does not measure how strong they are.</p></div>
 <div class="cell md"><h2 id="s-3-k-means-clustering">3. K-Means Clustering</h2>
 <p>K-Means represents each cluster by a <strong>centroid</strong> (the mean of its data points):</p>
 <ol>
-<li><strong>Initialise:</strong> choose K initial centroids</li>
+<li><strong>Initialise:</strong> choose K initial centroids. <strong>K-Means++</strong> selects the next centroid with a higher probability if it is far from the centroids already chosen, which avoids a poor start (it is the default in scikit-learn)</li>
 <li><strong>Assign:</strong> assign each data point to the cluster with the nearest centroid</li>
 <li><strong>Update:</strong> recalculate each centroid using the mean of the points assigned to its cluster</li>
 <li><strong>Repeat</strong> steps 2–3 until the clusters stop changing</li>
@@ -249,15 +278,15 @@ Without normalisation, <code>lead_time</code> (0–709) would dominate <code>tot
 <li><strong>Elbow method:</strong> use the turning point in the curve of the within-cluster sum of squares (SSE) against the number of clusters</li>
 <li><strong>Silhouette coefficient:</strong> measures how compact and how well separated the clusters are (from −1 to 1, higher is better)</li>
 </ul></div>
-<div class="cell code"><div class="in"><span class="prompt">In [4]</span><pre class="src"><span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<div class="cell code"><div class="in"><span class="prompt">In [5]</span><pre class="src"><span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Empirical method: k ≈ sqrt(n/2) ="</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)))</span>
 </pre></div><div class="out"><pre class="o-text">Empirical method: k ≈ sqrt(n/2) = 208
 </pre></div></div>
-<div class="cell code"><div class="in"><span class="prompt">In [5]</span><pre class="src"><span class="n">sse</span> <span class="o">=</span> <span class="p">{}</span>
+<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">sse</span> <span class="o">=</span> <span class="p">{}</span>
 <span class="n">silhouette</span> <span class="o">=</span> <span class="p">{}</span>
 
 <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">):</span>
-    <span class="n">km</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+    <span class="n">km</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="s2">"k-means++"</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
     <span class="n">km</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="n">sse</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">km</span><span class="o">.</span><span class="n">inertia_</span>                                    <span class="c1"># SSE</span>
     <span class="n">silhouette</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">km</span><span class="o">.</span><span class="n">labels_</span><span class="p">,</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
@@ -322,7 +351,7 @@ Without normalisation, <code>lead_time</code> (0–709) would dominate <code>tot
   </tbody>
 </table>
 </div></div></div></div>
-<div class="cell code"><div class="in"><span class="prompt">In [6]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
 
 <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">sse</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">sse</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">BLUE</span><span class="p">)</span>
 <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Elbow Method"</span><span class="p">)</span>
@@ -341,7 +370,7 @@ Without normalisation, <code>lead_time</code> (0–709) would dominate <code>tot
 <div class="cell md"><h3 id="s-3-2-final-k-means-model-k-4">3.2 Final K-Means Model (k = 4)</h3>
 <p>The empirical method gives about 208 clusters, which is too many to summarise the data.
 The SSE curve bends at <strong>k = 4</strong>: after 4, adding a cluster gives only a small reduction in SSE.</p></div>
-<div class="cell code"><div class="in"><span class="prompt">In [7]</span><pre class="src"><span class="n">kmeans</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">kmeans</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="s2">"k-means++"</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span> <span class="o">=</span> <span class="n">kmeans</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">"SSE:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">kmeans</span><span class="o">.</span><span class="n">inertia_</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
@@ -358,7 +387,7 @@ Name: count, dtype: int64</pre></div></div>
 <div class="cell md"><h3 id="s-3-3-describing-the-clusters">3.3 Describing the Clusters</h3>
 <p>Each centroid is shown in the original units (mean of each attribute in the cluster),
 together with the cancellation rate of the cluster.</p></div>
-<div class="cell code"><div class="in"><span class="prompt">In [8]</span><pre class="src"><span class="n">profile</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"cluster"</span><span class="p">)[</span><span class="n">ATTRIBUTES</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">profile</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"cluster"</span><span class="p">)[</span><span class="n">ATTRIBUTES</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">profile</span><span class="p">[</span><span class="s2">"bookings"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
 <span class="n">profile</span>
 </pre></div><div class="out"><div class="o-html"><div>
@@ -432,7 +461,7 @@ together with the cancellation rate of the cluster.</p></div>
 </div></div></div></div>
 <div class="cell md"><h3 id="s-3-4-cluster-visualisation">3.4 Cluster Visualisation</h3>
 <p>The centroids (normalised values from 0 to 1) show which attributes separate the clusters.</p></div>
-<div class="cell code"><div class="in"><span class="prompt">In [9]</span><pre class="src"><span class="n">centers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">kmeans</span><span class="o">.</span><span class="n">cluster_centers_</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">ATTRIBUTES</span><span class="p">)</span>
+<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">centers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">kmeans</span><span class="o">.</span><span class="n">cluster_centers_</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">ATTRIBUTES</span><span class="p">)</span>
 
 <span class="n">centers</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">BLUE</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">ORANGE</span><span class="p">,</span> <span class="s2">"#a855f7"</span><span class="p">])</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"K-Means centroids (normalised values)"</span><span class="p">)</span>
@@ -443,7 +472,108 @@ together with the cancellation rate of the cluster.</p></div>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"clu_02_kmeans_centroids.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div><div class="out"><figure class="o-img"><img src="img/07_02.png" loading="lazy" alt="Figure 2 of notebook 07"></figure></div></div>
-<div class="cell md"><h2 id="s-4-hierarchical-clustering-agglomerative-agnes">4. Hierarchical Clustering: Agglomerative (AGNES)</h2>
+<div class="cell md"><h2 id="s-4-k-medoids-pam">4. K-Medoids (PAM)</h2>
+<p>K-Means is <strong>sensitive to outliers</strong>: extreme values pull the mean (centroid) away from the main group.
+<strong>K-Medoids</strong> represents each cluster by an actual data point, the <strong>medoid</strong>: the point with the smallest total distance to the other points of its cluster.</p>
+<p>PAM (swap-based approach):</p>
+<ol>
+<li>Select K data points as the initial medoids</li>
+<li>Assign each data point to its nearest medoid</li>
+<li>Try swapping a medoid with a non-medoid point and keep the swap if it reduces the total distance (cost)</li>
+<li>Repeat until no further improvement is found</li>
+</ol>
+<p>PAM needs the distance between <strong>all pairs</strong> of points, so, like AGNES, it is run on a random sample of 2,000 bookings.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="c1"># pip install kmedoids</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">kmedoids</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">pairwise_distances</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X_sample</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+<span class="n">D</span> <span class="o">=</span> <span class="n">pairwise_distances</span><span class="p">(</span><span class="n">X_sample</span><span class="p">)</span>                    <span class="c1"># Euclidean distance between all pairs</span>
+<span class="n">pam</span> <span class="o">=</span> <span class="n">kmedoids</span><span class="o">.</span><span class="n">pam</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">medoid_labels</span> <span class="o">=</span> <span class="n">pam</span><span class="o">.</span><span class="n">labels</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Cluster sizes:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">medoid_labels</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Total distance (cost):"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">pam</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Silhouette:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">medoid_labels</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Cluster sizes: [737 592 335 336]
+Total distance (cost): 363.4
+Silhouette: 0.301
+</pre></div></div>
+<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">medoids</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">ATTRIBUTES</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">pam</span><span class="o">.</span><span class="n">medoids</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">medoids</span><span class="p">[</span><span class="s2">"cancellation rate"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">medoid_labels</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+<span class="n">medoids</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"medoid (booking number)"</span>
+<span class="n">medoids</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adr</th>
+      <th>total_guests</th>
+      <th>total_of_special_requests</th>
+      <th>cancellation rate</th>
+    </tr>
+    <tr>
+      <th>medoid (booking number)</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>79729</th>
+      <td>82</td>
+      <td>3</td>
+      <td>108.0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>0.24</td>
+    </tr>
+    <tr>
+      <th>35659</th>
+      <td>71</td>
+      <td>3</td>
+      <td>95.0</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0.34</td>
+    </tr>
+    <tr>
+      <th>72622</th>
+      <td>21</td>
+      <td>2</td>
+      <td>76.0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0.20</td>
+    </tr>
+    <tr>
+      <th>83730</th>
+      <td>59</td>
+      <td>3</td>
+      <td>138.0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>0.32</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p>K-Medoids also gives four groups, with a silhouette of 0.301, close to K-Means (0.320 on the same 2,000 bookings).
+The medoids are real bookings: for example, the first medoid is a booking made 82 days ahead, for 3 nights at €108, by 2 guests with 1 special request.
+The group sizes are more balanced (737 · 592 · 335 · 336) than K-Means on the same sample (1,076 · 344 · 318 · 262).
+Outliers were analysed in notebook 03, so both methods give similar groups. K-Means is used for the full dataset because PAM needs the distance between all pairs of bookings.</p></div>
+<div class="cell md"><h2 id="s-5-hierarchical-clustering-agglomerative-agnes">5. Hierarchical Clustering: Agglomerative (AGNES)</h2>
 <ul>
 <li>Start with singleton clusters and continuously <strong>merge the two closest clusters</strong> (bottom-up)</li>
 <li>The result is drawn as a <strong>dendrogram</strong>; cutting it at a level gives the clusters</li>
@@ -451,12 +581,10 @@ together with the cancellation rate of the cluster.</p></div>
 <li><strong>Single link:</strong> the nearest members (sensitive to noise and outliers)</li>
 <li><strong>Complete link:</strong> the most dissimilar members (compact clusters)</li>
 <li><strong>Average link:</strong> the average distance over all pairs</li>
+<li><strong>Centroid link:</strong> the distance between the centroids of the two clusters</li>
 </ul>
 <p>The time complexity is at least $O(n^2)$, so a random sample of 2,000 bookings is used.</p></div>
-<div class="cell code"><div class="in"><span class="prompt">In [10]</span><pre class="src"><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-<span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">X_sample</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-
+<div class="cell code"><div class="in"><span class="prompt">In [13]</span><pre class="src"><span class="c1"># same 2,000 bookings as K-Medoids</span>
 <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"single"</span><span class="p">,</span> <span class="s2">"complete"</span><span class="p">,</span> <span class="s2">"average"</span><span class="p">]:</span>
     <span class="n">agnes</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="n">link</span><span class="p">)</span>
     <span class="n">labels</span> <span class="o">=</span> <span class="n">agnes</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_sample</span><span class="p">)</span>
@@ -465,10 +593,17 @@ together with the cancellation rate of the cluster.</p></div>
 complete  cluster sizes: [ 339 1169  191  301] | silhouette: 0.128
 </pre><pre class="o-text">average   cluster sizes: [1995    3    1    1] | silhouette: 0.322
 </pre></div></div>
-<div class="cell md"><p><strong>Single</strong> and <strong>average</strong> link put almost all bookings in one cluster and isolate a few unusual bookings
+<div class="cell code"><div class="in"><span class="prompt">In [14]</span><pre class="src"><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">linkage</span><span class="p">,</span> <span class="n">fcluster</span>
+
+<span class="n">Z_centroid</span> <span class="o">=</span> <span class="n">linkage</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"centroid"</span><span class="p">)</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">fcluster</span><span class="p">(</span><span class="n">Z_centroid</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">criterion</span><span class="o">=</span><span class="s2">"maxclust"</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"centroid  cluster sizes: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2"> | silhouette: </span><span class="si">{</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span><span class="w"> </span><span class="n">labels</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div><div class="out"><pre class="o-text">centroid  cluster sizes: [1923   75    1    1] | silhouette: 0.399
+</pre></div></div>
+<div class="cell md"><p><strong>Single</strong>, <strong>average</strong> and <strong>centroid</strong> link put almost all bookings in one cluster and isolate a few unusual bookings
 as clusters of size 1 — they are sensitive to outliers. Their high silhouette is therefore misleading.
 <strong>Complete link</strong> produces more useful groups, so it is used for the dendrogram.</p></div>
-<div class="cell code"><div class="in"><span class="prompt">In [11]</span><pre class="src"><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">linkage</span><span class="p">,</span> <span class="n">dendrogram</span>
+<div class="cell code"><div class="in"><span class="prompt">In [15]</span><pre class="src"><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">linkage</span><span class="p">,</span> <span class="n">dendrogram</span>
 
 <span class="n">Z</span> <span class="o">=</span> <span class="n">linkage</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"complete"</span><span class="p">)</span>
 
@@ -482,7 +617,7 @@ as clusters of size 1 — they are sensitive to outliers. Their high silhouette 
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">FIG_DIR</span> <span class="o">/</span> <span class="s2">"clu_03_dendrogram.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div><div class="out"><figure class="o-img"><img src="img/07_03.png" loading="lazy" alt="Figure 3 of notebook 07"></figure></div></div>
-<div class="cell code"><div class="in"><span class="prompt">In [12]</span><pre class="src"><span class="n">agnes</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="s2">"complete"</span><span class="p">)</span>
+<div class="cell code"><div class="in"><span class="prompt">In [16]</span><pre class="src"><span class="n">agnes</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="s2">"complete"</span><span class="p">)</span>
 <span class="n">agnes_labels</span> <span class="o">=</span> <span class="n">agnes</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_sample</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Silhouette on the same 2,000 bookings:"</span><span class="p">)</span>
@@ -492,7 +627,229 @@ as clusters of size 1 — they are sensitive to outliers. Their high silhouette 
   K-Means:                0.32
   Agglomerative (complete): 0.128
 </pre></div></div>
-<div class="cell md"><h2 id="s-5-summary">5. Summary</h2>
+<div class="cell md"><h2 id="s-6-density-based-clustering-dbscan">6. Density-Based Clustering: DBSCAN</h2>
+<p>DBSCAN finds clusters as <strong>dense regions</strong> separated by regions of low density. It does not need K, it can find clusters of arbitrary shape, and it marks the points that belong to no cluster as <strong>noise</strong> (outliers).</p>
+<ul>
+<li><strong>Eps (ε):</strong> the radius of the neighbourhood of a point</li>
+<li><strong>MinPts:</strong> the minimum number of points inside the ε-neighbourhood for a point to be a <strong>core point</strong></li>
+<li><strong>Border point:</strong> inside the neighbourhood of a core point, but its own neighbourhood is not dense</li>
+<li><strong>Noise (outlier):</strong> neither a core point nor a border point</li>
+</ul>
+<p>DBSCAN is <strong>sensitive to its parameters</strong>, so several settings are compared. DBSCAN needs the neighbourhood of every point and uses a lot of memory when many bookings are identical, so it is run on a random sample of 20,000 bookings.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [17]</span><pre class="src"><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">idx_db</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X_db</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">idx_db</span><span class="p">]</span>
+
+<span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">eps</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">]:</span>
+    <span class="k">for</span> <span class="n">min_pts</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">]:</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">DBSCAN</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="n">min_pts</span><span class="p">)</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_db</span><span class="p">)</span>
+        <span class="n">in_cluster</span> <span class="o">=</span> <span class="n">labels</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"Eps"</span><span class="p">:</span> <span class="n">eps</span><span class="p">,</span> <span class="s2">"MinPts"</span><span class="p">:</span> <span class="n">min_pts</span><span class="p">,</span>
+                     <span class="s2">"clusters"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">in_cluster</span><span class="p">])),</span>
+                     <span class="s2">"noise points"</span><span class="p">:</span> <span class="p">(</span><span class="o">~</span><span class="n">in_cluster</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+                     <span class="s2">"noise %"</span><span class="p">:</span> <span class="nb">round</span><span class="p">((</span><span class="o">~</span><span class="n">in_cluster</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">)})</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Eps</th>
+      <th>MinPts</th>
+      <th>clusters</th>
+      <th>noise points</th>
+      <th>noise %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.05</td>
+      <td>10</td>
+      <td>22</td>
+      <td>1286</td>
+      <td>6.4</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.05</td>
+      <td>20</td>
+      <td>14</td>
+      <td>2223</td>
+      <td>11.1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.10</td>
+      <td>10</td>
+      <td>19</td>
+      <td>240</td>
+      <td>1.2</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.10</td>
+      <td>20</td>
+      <td>15</td>
+      <td>379</td>
+      <td>1.9</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.15</td>
+      <td>10</td>
+      <td>18</td>
+      <td>107</td>
+      <td>0.5</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>0.15</td>
+      <td>20</td>
+      <td>17</td>
+      <td>157</td>
+      <td>0.8</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p>The result depends on the parameters. A small Eps marks many bookings as noise (11.1% with Eps = 0.05 and MinPts = 20) and a large Eps marks almost none (0.5–0.8% with Eps = 0.15).
+<strong>Eps = 0.1 and MinPts = 20</strong> gives 15 clusters and 1.9% noise, and is used as the final setting.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [18]</span><pre class="src"><span class="n">dbscan</span> <span class="o">=</span> <span class="n">DBSCAN</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">db_labels</span> <span class="o">=</span> <span class="n">dbscan</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_db</span><span class="p">)</span>
+<span class="n">in_cluster</span> <span class="o">=</span> <span class="n">db_labels</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span>
+
+<span class="n">sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">db_labels</span><span class="p">[</span><span class="n">in_cluster</span><span class="p">]))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">sil_dbscan</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_db</span><span class="p">[</span><span class="n">in_cluster</span><span class="p">],</span> <span class="n">db_labels</span><span class="p">[</span><span class="n">in_cluster</span><span class="p">],</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Clusters:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sizes</span><span class="p">),</span> <span class="s2">"| noise points:"</span><span class="p">,</span> <span class="p">(</span><span class="o">~</span><span class="n">in_cluster</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Largest clusters:"</span><span class="p">,</span> <span class="n">sizes</span><span class="p">[:</span><span class="mi">6</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Silhouette (without noise):"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">sil_dbscan</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div><div class="out"><pre class="o-text">Clusters: 15 | noise points: 379
+Largest clusters: [6169 4791 2438 1743  823  813]
+Silhouette (without noise): 0.356
+</pre></div></div>
+<div class="cell md"><p>The noise points are the bookings that DBSCAN does not place in any dense region. Their average values show how they differ from the other bookings:</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [19]</span><pre class="src"><span class="n">db_sample</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_db</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">db_sample</span><span class="p">[</span><span class="s2">"dbscan_noise"</span><span class="p">]</span> <span class="o">=</span> <span class="o">~</span><span class="n">in_cluster</span>
+<span class="n">db_sample</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"dbscan_noise"</span><span class="p">)[</span><span class="n">ATTRIBUTES</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"is_canceled"</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>lead_time</th>
+      <th>total_nights</th>
+      <th>adr</th>
+      <th>total_guests</th>
+      <th>total_of_special_requests</th>
+      <th>is_canceled</th>
+    </tr>
+    <tr>
+      <th>dbscan_noise</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>False</th>
+      <td>78.59</td>
+      <td>3.58</td>
+      <td>106.40</td>
+      <td>2.02</td>
+      <td>0.68</td>
+      <td>0.27</td>
+    </tr>
+    <tr>
+      <th>True</th>
+      <td>153.84</td>
+      <td>7.64</td>
+      <td>157.37</td>
+      <td>2.81</td>
+      <td>2.08</td>
+      <td>0.27</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><p>DBSCAN finds <strong>15 dense groups</strong> instead of 4, because guests and special requests are whole numbers: the bookings form a separate dense island for each combination of values.
+Its silhouette (0.356, without noise) is not directly comparable with K-Means, and 15 groups are harder to describe than 4.</p>
+<p>The <strong>noise points</strong> (379 bookings, 1.9%) are unusual combinations: longer lead time (154 days against 79), longer stays (7.6 nights against 3.6), a higher price (€157 against €106), and more guests and special requests.
+This agrees with notebook 03, where such values were real behaviour (early bookings, long stays, peak-season prices), and their cancellation rate (27%) is the same as for the other bookings.
+K-Means is kept as the main method because it gives four groups that are easy to interpret.</p></div>
+<div class="cell md"><h2 id="s-7-comparison-of-the-methods">7. Comparison of the Methods</h2>
+<p>The silhouette coefficient is calculated on the <strong>same 2,000 bookings</strong> for the methods that need all pairwise distances. DBSCAN uses a different sample (20,000 bookings) and its silhouette excludes the noise points, so it is not directly comparable.</p></div>
+<div class="cell code"><div class="in"><span class="prompt">In [20]</span><pre class="src"><span class="n">sil_kmeans</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cluster"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+<span class="n">sil_kmedoids</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">medoid_labels</span><span class="p">)</span>
+<span class="n">sil_agnes</span> <span class="o">=</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X_sample</span><span class="p">,</span> <span class="n">agnes_labels</span><span class="p">)</span>
+
+<span class="n">comparison</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"Method"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"K-Means"</span><span class="p">,</span> <span class="s2">"K-Medoids (PAM)"</span><span class="p">,</span> <span class="s2">"AGNES (complete link)"</span><span class="p">,</span> <span class="s2">"DBSCAN (Eps = 0.1, MinPts = 20)"</span><span class="p">],</span>
+    <span class="s2">"Family"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"Partitioning"</span><span class="p">,</span> <span class="s2">"Partitioning"</span><span class="p">,</span> <span class="s2">"Hierarchical"</span><span class="p">,</span> <span class="s2">"Density-based"</span><span class="p">],</span>
+    <span class="s2">"Clusters"</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sizes</span><span class="p">)],</span>
+    <span class="s2">"Bookings used"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"all (silhouette on 2,000)"</span><span class="p">,</span> <span class="s2">"2,000"</span><span class="p">,</span> <span class="s2">"2,000"</span><span class="p">,</span> <span class="s2">"20,000, noise excluded"</span><span class="p">],</span>
+    <span class="s2">"Silhouette"</span><span class="p">:</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">sil_kmeans</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">sil_kmedoids</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">sil_agnes</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">sil_dbscan</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+<span class="p">})</span>
+<span class="n">comparison</span>
+</pre></div><div class="out"><div class="o-html"><div>
+
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Method</th>
+      <th>Family</th>
+      <th>Clusters</th>
+      <th>Bookings used</th>
+      <th>Silhouette</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>K-Means</td>
+      <td>Partitioning</td>
+      <td>4</td>
+      <td>all (silhouette on 2,000)</td>
+      <td>0.320</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>K-Medoids (PAM)</td>
+      <td>Partitioning</td>
+      <td>4</td>
+      <td>2,000</td>
+      <td>0.301</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>AGNES (complete link)</td>
+      <td>Hierarchical</td>
+      <td>4</td>
+      <td>2,000</td>
+      <td>0.128</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>DBSCAN (Eps = 0.1, MinPts = 20)</td>
+      <td>Density-based</td>
+      <td>15</td>
+      <td>20,000, noise excluded</td>
+      <td>0.356</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></div>
+<div class="cell md"><h2 id="s-8-summary">8. Summary</h2>
 <p><strong>Question:</strong> What groups of similar bookings exist, and do they differ in cancellation?</p>
 <table>
 <thead>
@@ -530,14 +887,53 @@ as clusters of size 1 — they are sensitive to outliers. Their high silhouette 
 </tr>
 </tbody>
 </table>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Family</th>
+<th>Clusters</th>
+<th>Silhouette</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K-Means (K-Means++)</td>
+<td>Partitioning</td>
+<td>4</td>
+<td>0.320 (same 2,000 bookings)</td>
+</tr>
+<tr>
+<td>K-Medoids (PAM)</td>
+<td>Partitioning</td>
+<td>4</td>
+<td>0.301</td>
+</tr>
+<tr>
+<td>AGNES, complete link</td>
+<td>Hierarchical</td>
+<td>4</td>
+<td>0.128</td>
+</tr>
+<tr>
+<td>DBSCAN (Eps = 0.1, MinPts = 20)</td>
+<td>Density-based</td>
+<td>15 + noise</td>
+<td>0.356 (20,000 bookings, without noise)</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Findings</strong></p>
 <ol>
+<li>The Hopkins statistic (0.987) shows that the bookings are clustered, so cluster analysis is appropriate.</li>
 <li>K-Means (k = 4, chosen with the elbow method) separates bookings mainly by <strong>number of guests</strong>, <strong>price</strong> and <strong>special requests</strong>.</li>
 <li>Large, expensive bookings (cluster 0) are canceled most often (39%); single guests and guests with special requests are canceled least (19–20%).</li>
-<li>Special requests are linked to fewer cancellations here and in the classification models (notebook 05), found here <strong>without using the class label</strong>.</li>
-<li>Agglomerative clustering with <strong>single</strong> or <strong>average</strong> link isolates a few unusual bookings (sensitive to outliers); <strong>complete</strong> link gives four usable groups but a much lower silhouette (0.128) than K-Means (0.320) on the same sample.</li>
+<li>Special requests are linked to fewer cancellations here and in the classification models (notebook 06), found here <strong>without using the class label</strong>.</li>
+<li><strong>K-Medoids</strong> gives similar groups (silhouette 0.301 against 0.320).</li>
+<li>Agglomerative clustering with <strong>single</strong>, <strong>average</strong> or <strong>centroid</strong> link isolates a few unusual bookings (sensitive to outliers); <strong>complete</strong> link gives four usable groups but a much lower silhouette (0.128) than K-Means (0.320) on the same sample.</li>
+<li><strong>DBSCAN</strong> finds 15 dense groups and marks 1.9% of the bookings as noise: long stays, early bookings and high prices that are real behaviour, not errors.</li>
 </ol>
-<p><strong>Limitation:</strong> the silhouette coefficient is about 0.32, so the clusters are only moderately separated.</p></div>
+<p><strong>Limitation:</strong> the silhouette coefficient is about 0.32, so the clusters are only moderately separated. DBSCAN and PAM were run on samples because they need much memory or all pairwise distances.</p></div>
     <div class="pager"><a href="06.html"><small>← Previous notebook</small>06 · Classification: Predicting Hotel Booking Cancellation</a><a class="next" href="08.html"><small>Next notebook →</small>08 · Numeric Prediction: Predicting the Room Price (ADR)</a></div>
   </main>
 </div>
